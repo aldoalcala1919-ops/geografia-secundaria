@@ -180,7 +180,7 @@ if modo == "Portal Familiar / Alumno":
             st.markdown("### Proyectos PDA (Procesos de Desarrollo de Aprendizaje)")
             proyectos_activos = [a for a in st.session_state.actividades if a['tipo'] == 'Proyecto']
             for p in proyectos_activos:
-                estado_txt = "🟢 En desarrollo / Abierto" : "🔴 Finalizado" if not p['activa'] else "🟢 Abierto"
+                estado_txt = "🟢 Abierto" if p['activa'] else "🔴 Finalizado"
                 st.markdown(f"""
                 <div class="card">
                     <h4>{p['titulo']}</h4>

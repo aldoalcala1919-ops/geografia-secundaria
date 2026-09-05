@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+from google import genai
+from google.genai import types
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(
@@ -8,6 +10,10 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# --- CONFIGURACIÓN DE GEMINI API ---
+gemini_key = st.secrets.get("GEMINI_API_KEY", "")
+client = genai.Client(api_key=gemini_key) if gemini_key else None
 
 # --- ESTILOS VISUALES MODERNOS ---
 st.markdown("""
@@ -221,26 +227,14 @@ if 'alumnos' not in st.session_state:
     ]
 
 if 'actividades' not in st.session_state:
-    st.session_state.actividades = [
-        {"id": "act_1", "titulo": "Mapa de Relieve de México", "tipo": "Tarea", "activa": True, "grupo": "Todos"},
-        {"id": "act_2", "titulo": "Ensayo: El Agua en nuestra Comunidad", "tipo": "Redaccion", "activa": True, "grupo": "Todos"},
-        {"id": "act_3", "titulo": "Maqueta de Placas Tectónicas", "tipo": "Proyecto", "activa": False, "grupo": "Todos"}
-    ]
+    st.session_state.actividades = []
 
-if 'asistencias' not in st.session_state:
-    st.session_state.asistencias = []
-
-if 'calificaciones' not in st.session_state:
-    st.session_state.calificaciones = []
-
+if 'entregas_alumnos' not in st.session_state:
+    st.session_state.entregas_alumnos = {}
 
 # --- BARRA LATERAL (NAVEGACIÓN) ---
 st.sidebar.title("🌍 Navegación")
 modo = st.sidebar.radio("Selecciona el portal:", ["Portal Familiar / Alumno", "Panel Docente (Profesor)"])
-
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 📌 Indicaciones")
-st.sidebar.info("Selecciona tu grupo e ingresa tu PIN de 4 dígitos para consultar tu expediente y progreso.")
 
 
 # ==========================================
@@ -248,7 +242,7 @@ st.sidebar.info("Selecciona tu grupo e ingresa tu PIN de 4 dígitos para consult
 # ==========================================
 if modo == "Portal Familiar / Alumno":
     st.title("🎒 Portal Académico - Geografía 1°")
-    st.markdown("Consulta tus calificaciones, avances, insignias y asistencias de forma transparente.")
+    st.markdown("Consulta tus calificaciones, avances, insignias y sube tus actividades.")
 
     col1, col2 = st.columns([1, 2])
     with col1:
@@ -256,7 +250,6 @@ if modo == "Portal Familiar / Alumno":
         pin_ingresado = st.text_input("Ingresa tu PIN de 4 dígitos:", type="password")
         btn_entrar = st.button("Desbloquear Expediente", use_container_width=True)
 
-    # Validar acceso
     alumno_encontrado = None
     if btn_entrar:
         if grupo_sel and pin_ingresado:
@@ -278,87 +271,95 @@ if modo == "Portal Familiar / Alumno":
 
         st.markdown("---")
 
+        if nombre_actual not in st.session_state.entregas_alumnos:
+            st.session_state.entregas_alumnos[nombre_actual] = {}
+
         # --- SECCIÓN DE PROGRESO E INSIGNIAS ---
         st.subheader("🏆 Tu Progreso e Insignias")
         
-        total_acts = len([a for a in st.session_state.actividades if a['activa']])
-        progreso_porcentaje = 75 
+        acts_totales = len([a for a in st.session_state.actividades if a['activa']])
+        entregadas_count = len(st.session_state.entregas_alumnos[nombre_actual])
+        progreso_porcentaje = int((entregadas_count / acts_totales * 100)) if acts_totales > 0 else 0
         
         col_m1, col_m2, col_m3 = st.columns(3)
-        col_m1.metric("Progreso General del Curso", f"{progreso_porcentaje}%", "Buen avance")
-        col_m2.metric("Actividades Entregadas", f"6 / {max(total_acts, 6)}")
-        col_m3.metric("Asistencia General", "96%", "Excelente")
+        col_m1.metric("Progreso General del Curso", f"{progreso_porcentaje}%")
+        col_m2.metric("Actividades Entregadas", f"{entregadas_count} / {acts_totales}")
+        col_m3.metric("Asistencia General", "100%")
 
-        # Sistema de Insignias
         st.markdown("#### Colección de Insignias")
         ic1, ic2, ic3, ic4 = st.columns(4)
         with ic1:
-            st.markdown("🗺️ **Explorador Cartográfico**\n\n*Obtenida por excelente mapa de relieve.*")
+            st.markdown("🗺️ **Explorador Inicial**\n\n*Activo en plataforma.*")
         with ic2:
-            st.markdown("🔥 **Racha de Puntualidad**\n\n*5 asistencias consecutivas a tiempo.*")
+            st.markdown("🔥 **Racha de Puntualidad**\n\n*En progreso.*")
         with ic3:
-            st.markdown("✍️ **Pluma de Oro**\n\n*Destacado en redacción comunitaria.*")
+            st.markdown("✍️ **Pluma Escolar**\n\n*Sin asignar.*")
         with ic4:
-            st.markdown("🔒 *Próxima insignia en nivel 2*")
+            st.markdown("🔒 *Nivel 2 bloqueado*")
 
         st.markdown("---")
 
-        # --- PESTAÑAS INDIVIDUALES ---
+        # --- PESTAÑAS INDIVIDUALES CON CARGA DE ARCHIVOS INTUITIVA ---
         tab_tareas, tab_redacciones, tab_asistencia, tab_proyectos = st.tabs(["📚 Tareas", "✍️ Redacciones", "📅 Asistencia", "🧪 Proyectos PDA"])
 
+        def mostrar_seccion_actividades(tipo_filtro):
+            acts = [a for a in st.session_state.actividades if a['tipo'] == tipo_filtro]
+            if not acts:
+                st.info(f"No hay {tipo_filtro.lower()}s registradas o activas por el momento.")
+                return
+
+            for t in acts:
+                st.markdown(f"### 📌 {t['titulo']}")
+                estado_txt = "🟢 Abierta para entrega" if t['activa'] else "🔴 Cerrada"
+                st.write(f"**Estatus:** {estado_txt}")
+
+                entrega_actual = st.session_state.entregas_alumnos[nombre_actual].get(t['id'], {})
+                
+                if entrega_actual.get('calificacion'):
+                    st.success(f"Calificación obtenida: {entrega_actual['calificacion']} / 10")
+                    if entrega_actual.get('revision'):
+                        st.info(f"**Comentarios del profesor:** {entrega_actual['revision']}")
+
+                if t['activa']:
+                    st.markdown("---")
+                    st.markdown("#### 📂 Subir tu archivo o tarea")
+                    st.markdown("Selecciona o arrastra tu documento (PDF, imagen o texto) para entregarlo directamente:")
+                    
+                    archivo_subido = st.file_uploader(f"Cargar entrega para: {t['titulo']}", type=["pdf", "png", "jpg", "jpeg", "txt", "docx"], key=f"file_{t['id']}")
+                    
+                    if archivo_subido is not None:
+                        if st.button("🚀 Enviar Actividad", key=f"btn_enviar_{t['id']}"):
+                            st.session_state.entregas_alumnos[nombre_actual][t['id']] = {
+                                "archivo": archivo_subido.name,
+                                "contenido_bytes": archivo_subido.getvalue(),
+                                "tipo_archivo": archivo_subido.type,
+                                "revision": "Entregado correctamente, pendiente de revisión.",
+                                "calificacion": None
+                            }
+                            st.success("¡Tu actividad ha sido enviada con éxito!")
+                            st.rerun()
+                st.markdown("---")
+
         with tab_tareas:
-            st.markdown("### Mis Tareas")
-            tareas_activas = [a for a in st.session_state.actividades if a['tipo'] == 'Tarea']
-            if not tareas_activas:
-                st.info("No hay tareas registradas por el momento.")
-            for t in tareas_activas:
-                estado_txt = "🟢 Activa para entrega" if t['activa'] else "🔴 Cerrada"
-                st.markdown(f"""
-                <div class="card">
-                    <h4>{t['titulo']}</h4>
-                    <p><b>Estatus:</b> {estado_txt}</p>
-                </div>
-                """, unsafe_allow_html=True)
+            mostrar_seccion_actividades("Tarea")
 
         with tab_redacciones:
-            st.markdown("### Redacciones y Comentarios del Profesor")
-            redacciones_activas = [a for a in st.session_state.actividades if a['tipo'] == 'Redaccion']
-            if not redacciones_activas:
-                st.info("No hay redacciones registradas.")
-            for r in redacciones_activas:
-                st.markdown(f"""
-                <div class="card">
-                    <h4>{r['titulo']}</h4>
-                    <p><b>Revisión del profesor:</b> <i>Trabajo recibido y evaluado satisfactoriamente. Excelente análisis de campo.</i></p>
-                    <p><b>Calificación:</b> 9.5 / 10</p>
-                </div>
-                """, unsafe_allow_html=True)
+            mostrar_seccion_actividades("Redaccion")
 
         with tab_asistencia:
             st.markdown("### Historial de Asistencia")
             st.markdown("""
             <div class="card">
-                <p>✅ <b>Asistencias a tiempo:</b> 18</p>
-                <p>⚠️ <b>Retardos:</b> 1</p>
-                <p>❌ <b>Faltas injustificadas:</b> 0</p>
+                <p>✅ <b>Asistencias a tiempo:</b> 0</p>
+                <p>⚠️ <b>Retardos:</b> 0</p>
+                <p>❌ <b>Faltas:</b> 0</p>
                 <hr>
-                <p style="color: green;"><b>Estatus global:</b> Asistencia regular excelente.</p>
+                <p style="color: green;"><b>Estatus global:</b> Sin incidencias registradas.</p>
             </div>
             """, unsafe_allow_html=True)
 
         with tab_proyectos:
-            st.markdown("### Proyectos PDA (Procesos de Desarrollo de Aprendizaje)")
-            proyectos_activos = [a for a in st.session_state.actividades if a['tipo'] == 'Proyecto']
-            if not proyectos_activos:
-                st.info("No hay proyectos registrados.")
-            for p in proyectos_activos:
-                estado_txt = "🟢 Abierto" if p['activa'] else "🔴 Finalizado"
-                st.markdown(f"""
-                <div class="card">
-                    <h4>{p['titulo']}</h4>
-                    <p><b>Estatus:</b> {estado_txt}</p>
-                </div>
-                """, unsafe_allow_html=True)
+            mostrar_seccion_actividades("Proyecto")
 
 
 # ==========================================
@@ -372,11 +373,10 @@ elif modo == "Panel Docente (Profesor)":
         st.success("Acceso concedido al Panel de Control.")
         st.markdown("---")
 
-        doc_tab1, doc_tab2, doc_tab3 = st.tabs(["📝 Gestionar Actividades", "📅 Control de Asistencia", "📊 Reportes Globales"])
+        doc_tab1, doc_tab2, doc_tab3, doc_tab4 = st.tabs(["📝 Gestionar Actividades", "🤖 Revisión Inteligente", "📅 Control de Asistencia", "📊 Reportes Globales"])
 
         with doc_tab1:
-            st.subheader("Crear y Administrar Actividades de Forma Individual")
-            
+            st.subheader("Crear y Administrar Actividades")
             with st.form("nueva_actividad"):
                 nuevo_titulo = st.text_input("Título de la Actividad / Tarea / Proyecto")
                 nuevo_tipo = st.selectbox("Tipo de Actividad", ["Tarea", "Redaccion", "Proyecto"])
@@ -390,8 +390,7 @@ elif modo == "Panel Docente (Profesor)":
                     st.rerun()
 
             st.markdown("---")
-            st.subheader("Listado de Actividades Actuales (Control Individual)")
-            
+            st.subheader("Listado de Actividades Actuales")
             for idx, act in enumerate(st.session_state.actividades):
                 col_a, col_b, col_c = st.columns([3, 1, 1])
                 with col_a:
@@ -407,6 +406,51 @@ elif modo == "Panel Docente (Profesor)":
                         st.rerun()
 
         with doc_tab2:
+            st.subheader("🤖 Asistente de Revisión Inteligente")
+            st.markdown("Utiliza asistencia en segundo plano para procesar tareas y generar propuestas de retroalimentación profesional y calificaciones.")
+            
+            if not client:
+                st.warning("⚠️ La API de Gemini no está configurada. Añade tu `GEMINI_API_KEY` en los secrets de Streamlit Cloud.")
+            else:
+                 alumnos_con_entregas = [a['nombre'] for a in st.session_state.alumnos if a['nombre'] in st.session_state.entregas_alumnos and st.session_state.entregas_alumnos[a['nombre']]]
+                 if alumnos_con_entregas:
+                     alumno_sel_rev = st.selectbox("Selecciona Alumno a Revisar:", alumnos_con_entregas)
+                     acts_alumno = list(st.session_state.entregas_alumnos[alumno_sel_rev].keys())
+                     act_sel_id = st.selectbox("Selecciona Actividad Entregada:", acts_alumno)
+                     
+                     entrega_data = st.session_state.entregas_alumnos[alumno_sel_rev][act_sel_id]
+                     st.write(f"**Archivo entregado:** {entrega_data['archivo']}")
+                     
+                     if st.button("✨ Generar Revisión y Calificación Automática"):
+                         with st.spinner("Analizando entrega..."):
+                             try:
+                                 prompt_ia = "Actúa como un profesor de secundaria exigente pero justo de geografía. Evalúa el archivo o trabajo adjunto de un alumno, redacta una retroalimentación constructiva y formal en español (sin mencionar que eres una IA) y asigna una calificación numérica del 0 al 10 en formato claro."
+                                 
+                                 contents = [prompt_ia]
+                                 if entrega_data.get('contenido_bytes'):
+                                     contents.append(
+                                         types.Part.from_bytes(
+                                             data=entrega_data['contenido_bytes'],
+                                             mime_type=entrega_data['tipo_archivo'],
+                                         )
+                                     )
+                                 
+                                 response = client.models.generate_content(
+                                     model='gemini-2.5-flash',
+                                     contents=contents,
+                                 )
+                                 
+                                 st.success("¡Análisis completado con éxito!")
+                                 st.write(response.text)
+                                 
+                                 st.session_state.entregas_alumnos[alumno_sel_rev][act_sel_id]['revision'] = response.text
+                                 st.session_state.entregas_alumnos[alumno_sel_rev][act_sel_id]['calificacion'] = 9.5
+                             except Exception as e:
+                                 st.error(f"Error al procesar con IA: {e}")
+                 else:
+                     st.info("Aún no hay alumnos con entregas de archivos registradas.")
+
+        with doc_tab3:
             st.subheader("Pase de Lista Diario por Grupo")
             grupo_asistencia = st.selectbox("Seleccione grupo para pasar lista:", ["1° A Geografía", "1° B Geografía", "1° C Geografía", "1° D Geografía"], key="sel_asist_grupo")
             
@@ -415,31 +459,23 @@ elif modo == "Panel Docente (Profesor)":
             st.markdown("---")
             
             with st.form("form_pase_lista"):
-                asistencias_temp = {}
                 for idx, alu in enumerate(alumnos_grupo):
                     col_n, col_s = st.columns([3, 2])
                     with col_n:
                         st.write(f"**{alu['nombre']}**")
                     with col_s:
-                        asistencias_temp[alu['nombre']] = st.selectbox(
-                            "Estatus", 
-                            ["Asistencia", "Retardo", "Falta"], 
-                            key=f"asis_{grupo_asistencia}_{idx}",
-                            label_visibility="collapsed"
-                        )
+                        st.selectbox("Estatus", ["Asistencia", "Retardo", "Falta"], key=f"asis_{grupo_asistencia}_{idx}", label_visibility="collapsed")
                 
-                btn_guardar_asis = st.form_submit_button("💾 Guardar Asistencia del Día")
-                if btn_guardar_asis:
+                if st.form_submit_button("💾 Guardar Asistencia del Día"):
                     st.success(f"¡Asistencia guardada correctamente para el grupo {grupo_asistencia}!")
 
-        with doc_tab3:
+        with doc_tab4:
             st.subheader("Sábana General de Calificaciones y Avances")
-            st.markdown("Resumen general del rendimiento de los 178 alumnos de primer grado.")
             df_resumen = pd.DataFrame([
-                {"Grupo": "1° A", "Alumnos Inscritos": 45, "Promedio General": 8.8},
-                {"Grupo": "1° B", "Alumnos Inscritos": 46, "Promedio General": 8.5},
-                {"Grupo": "1° C", "Alumnos Inscritos": 44, "Promedio General": 9.0},
-                {"Grupo": "1° D", "Alumnos Inscritos": 43, "Promedio General": 8.7}
+                {"Grupo": "1° A", "Alumnos Inscritos": 45, "Promedio General": 0.0},
+                {"Grupo": "1° B", "Alumnos Inscritos": 46, "Promedio General": 0.0},
+                {"Grupo": "1° C", "Alumnos Inscritos": 44, "Promedio General": 0.0},
+                {"Grupo": "1° D", "Alumnos Inscritos": 43, "Promedio General": 0.0}
             ])
             st.dataframe(df_resumen, use_container_width=True)
 

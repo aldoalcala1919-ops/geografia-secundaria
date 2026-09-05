@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import json
+import os
 from google import genai
 from google.genai import types
 
@@ -14,6 +16,35 @@ st.set_page_config(
 # --- CONFIGURACIÓN DE GEMINI API ---
 gemini_key = st.secrets.get("GEMINI_API_KEY", "")
 client = genai.Client(api_key=gemini_key) if gemini_key else None
+
+# --- ARCHIVO LOCAL PARA PERSISTENCIA ENTRE DISPOSITIVOS ---
+DB_FILE = "school_database.json"
+
+def cargar_datos_persistidos():
+    if os.path.exists(DB_FILE):
+        try:
+            with open(DB_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            pass
+    return {"actividades": [], "entregas": {}}
+
+def guardar_datos_persistidos(actividades, entregas):
+    data = {"actividades": actividades, "entregas": entregas}
+    try:
+        with open(DB_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+    except:
+        pass
+
+# Cargamos datos persistidos al iniciar
+stored_data = cargar_datos_persistidos()
+
+if 'actividades' not in st.session_state:
+    st.session_state.actividades = stored_data.get("actividades", [])
+
+if 'entregas_alumnos' not in st.session_state:
+    st.session_state.entregas_alumnos = stored_data.get("entregas", {})
 
 # --- ESTILOS VISUALES MODERNOS Y PROFESIONALES ---
 st.markdown("""
@@ -236,31 +267,6 @@ if 'alumnos' not in st.session_state:
         {"grupo": "PROFE", "nombre": "PROFE ALDO", "pin": "1111"}
     ]
 
-# --- VARIABLES GLOBALES COMPARTIDAS (SINCRONIZACIÓN PC Y CELULAR) ---
-if 'global_actividades' not in st.session_state:
-    # Usamos session_state sincronizado con un contenedor global si existe, o inicializamos
-    pass
-
-# Para asegurar que las actividades y entregas se compartan entre dispositivos en el servidor:
-if "shared_actividades" not in globals():
-    globals()["shared_actividades"] = []
-
-if "shared_entregas" not in globals():
-    globals()["shared_entregas"] = {}
-
-# Sincronizamos con st.session_state para manejo interno
-if 'actividades' not in st.session_state:
-    st.session_state.actividades = globals()["shared_actividades"]
-else:
-    # Mantener actualizado globalmente
-    globals()["shared_actividades"] = st.session_state.actividades
-
-if 'entregas_alumnos' not in st.session_state:
-    st.session_state.entregas_alumnos = globals()["shared_entregas"]
-else:
-    globals()["shared_entregas"] = st.session_state.entregas_alumnos
-
-
 # --- BARRA LATERAL (NAVEGACIÓN) ---
 st.sidebar.title("🌍 Navegación")
 modo = st.sidebar.radio("Selecciona el portal:", ["Portal Familiar / Alumno", "Panel Docente (Profesor)"])
@@ -305,8 +311,6 @@ if modo == "Portal Familiar / Alumno":
 
         if nombre_actual not in st.session_state.entregas_alumnos:
             st.session_state.entregas_alumnos[nombre_actual] = {}
-        
-        globals()["shared_entregas"] = st.session_state.entregas_alumnos
 
         # --- SECCIÓN DE PROGRESO E INSIGNIAS ---
         st.subheader("🏆 Tu Progreso e Insignias")
@@ -333,12 +337,14 @@ if modo == "Portal Familiar / Alumno":
 
         st.markdown("---")
 
-        # --- PESTAÑAS INDIVIDUALES CON BOTÓN DE CARGA INDEPENDIENTE ---
+        # --- PESTAÑAS INDIVIDUALES CON CARGA INDEPENDIENTE ---
         tab_tareas, tab_redacciones, tab_asistencia, tab_proyectos = st.tabs(["📚 Tareas", "✍️ Redacciones", "📅 Asistencia", "🧪 Proyectos PDA"])
 
         def mostrar_seccion_actividades(tipo_filtro):
-            # Actualizamos desde la variable global compartida
-            st.session_state.actividades = globals()["shared_actividades"]
+            # Recargamos siempre desde el archivo persistente para sincronización móvil/PC
+            current_data = cargar_datos_persistidos()
+            st.session_state.actividades = current_data.get("actividades", [])
+            
             acts = [a for a in st.session_state.actividades if a['tipo'] == tipo_filtro]
             
             if not acts:
@@ -380,7 +386,7 @@ if modo == "Portal Familiar / Alumno":
                                 "revision": "Entregado correctamente, pendiente de revisión.",
                                 "calificacion": None
                             }
-                            globals()["shared_entregas"] = st.session_state.entregas_alumnos
+                            guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos)
                             st.success(f"¡Actividad '{t['titulo']}' enviada con éxito!")
                             st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -433,20 +439,22 @@ elif modo == "Panel Docente (Profesor)":
                 btn_crear = st.form_submit_button("Crear Actividad")
                 
                 if btn_crear and nuevo_titulo:
-                    # Sincronizamos con la variable global
-                    st.session_state.actividades = globals()["shared_actividades"]
+                    current_data = cargar_datos_persistidos()
+                    st.session_state.actividades = current_data.get("actividades", [])
+                    
                     nuevo_id = f"act_{len(st.session_state.actividades) + 1}"
                     st.session_state.actividades.append({"id": nuevo_id, "titulo": nuevo_titulo, "tipo": nuevo_tipo, "activa": True, "grupo": grupo_destino})
-                    globals()["shared_actividades"] = st.session_state.actividades
-                    st.success(f"¡Actividad '{nuevo_titulo}' creada con éxito y sincronizada para todos!")
+                    
+                    guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos)
+                    st.success(f"¡Actividad '{nuevo_titulo}' creada y sincronizada en la nube con éxito!")
                     st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
             st.markdown("---")
             st.subheader("Listado de Actividades Actuales")
             
-            # Asegurar carga actual global
-            st.session_state.actividades = globals()["shared_actividades"]
+            current_data = cargar_datos_persistidos()
+            st.session_state.actividades = current_data.get("actividades", [])
             
             for idx, act in enumerate(st.session_state.actividades):
                 st.markdown('<div class="card-modern">', unsafe_allow_html=True)
@@ -457,11 +465,11 @@ elif modo == "Panel Docente (Profesor)":
                     nuevo_estado = st.toggle("Activa", value=act['activa'], key=f"toggle_{act['id']}_{idx}")
                     if nuevo_estado != act['activa']:
                         st.session_state.actividades[idx]['activa'] = nuevo_estado
-                        globals()["shared_actividades"] = st.session_state.actividades
+                        guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos)
                 with col_c:
                     if st.button("🗑️ Eliminar", key=f"del_{act['id']}_{idx}"):
                         st.session_state.actividades.pop(idx)
-                        globals()["shared_actividades"] = st.session_state.actividades
+                        guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos)
                         st.success("Actividad eliminada.")
                         st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -471,10 +479,11 @@ elif modo == "Panel Docente (Profesor)":
             st.subheader("🤖 Asistente de Revisión Inteligente")
             st.markdown("Utiliza asistencia en segundo plano para procesar tareas y generar propuestas de retroalimentación profesional y calificaciones.")
             
-            st.session_state.entregas_alumnos = globals()["shared_entregas"]
+            current_data = cargar_datos_persistidos()
+            st.session_state.entregas_alumnos = current_data.get("entregas", {})
 
             if not client:
-                st.warning("⚠️ La API de Gemini no está configurada. Añade tu `GEMINI_API_KEY` en los secrets de Streamlit Cloud.")
+                st.warning("⚠️ La API de Gemini não está configurada. Añade tu `GEMINI_API_KEY` en los secrets de Streamlit Cloud.")
             else:
                  alumnos_con_entregas = [a['nombre'] for a in st.session_state.alumnos if a['nombre'] in st.session_state.entregas_alumnos and st.session_state.entregas_alumnos[a['nombre']]]
                  if alumnos_con_entregas:
@@ -509,7 +518,7 @@ elif modo == "Panel Docente (Profesor)":
                                  
                                  st.session_state.entregas_alumnos[alumno_sel_rev][act_sel_id]['revision'] = response.text
                                  st.session_state.entregas_alumnos[alumno_sel_rev][act_sel_id]['calificacion'] = 9.5
-                                 globals()["shared_entregas"] = st.session_state.entregas_alumnos
+                                 guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos)
                              except Exception as e:
                                  st.error(f"Error al procesar con IA: {e}")
                  else:

@@ -236,11 +236,30 @@ if 'alumnos' not in st.session_state:
         {"grupo": "PROFE", "nombre": "PROFE ALDO", "pin": "1111"}
     ]
 
+# --- VARIABLES GLOBALES COMPARTIDAS (SINCRONIZACIÓN PC Y CELULAR) ---
+if 'global_actividades' not in st.session_state:
+    # Usamos session_state sincronizado con un contenedor global si existe, o inicializamos
+    pass
+
+# Para asegurar que las actividades y entregas se compartan entre dispositivos en el servidor:
+if "shared_actividades" not in globals():
+    globals()["shared_actividades"] = []
+
+if "shared_entregas" not in globals():
+    globals()["shared_entregas"] = {}
+
+# Sincronizamos con st.session_state para manejo interno
 if 'actividades' not in st.session_state:
-    st.session_state.actividades = []
+    st.session_state.actividades = globals()["shared_actividades"]
+else:
+    # Mantener actualizado globalmente
+    globals()["shared_actividades"] = st.session_state.actividades
 
 if 'entregas_alumnos' not in st.session_state:
-    st.session_state.entregas_alumnos = {}
+    st.session_state.entregas_alumnos = globals()["shared_entregas"]
+else:
+    globals()["shared_entregas"] = st.session_state.entregas_alumnos
+
 
 # --- BARRA LATERAL (NAVEGACIÓN) ---
 st.sidebar.title("🌍 Navegación")
@@ -286,6 +305,8 @@ if modo == "Portal Familiar / Alumno":
 
         if nombre_actual not in st.session_state.entregas_alumnos:
             st.session_state.entregas_alumnos[nombre_actual] = {}
+        
+        globals()["shared_entregas"] = st.session_state.entregas_alumnos
 
         # --- SECCIÓN DE PROGRESO E INSIGNIAS ---
         st.subheader("🏆 Tu Progreso e Insignias")
@@ -312,17 +333,19 @@ if modo == "Portal Familiar / Alumno":
 
         st.markdown("---")
 
-        # --- PESTAÑAS INDIVIDUALES CON BOTÓN DE CARGA INDEPENDIENTE POR CADA ACTIVIDAD ---
+        # --- PESTAÑAS INDIVIDUALES CON BOTÓN DE CARGA INDEPENDIENTE ---
         tab_tareas, tab_redacciones, tab_asistencia, tab_proyectos = st.tabs(["📚 Tareas", "✍️ Redacciones", "📅 Asistencia", "🧪 Proyectos PDA"])
 
         def mostrar_seccion_actividades(tipo_filtro):
+            # Actualizamos desde la variable global compartida
+            st.session_state.actividades = globals()["shared_actividades"]
             acts = [a for a in st.session_state.actividades if a['tipo'] == tipo_filtro]
+            
             if not acts:
                 st.info(f"No hay {tipo_filtro.lower()}s registradas o activas por el momento.")
                 return
 
             for t in acts:
-                # Cada actividad vive en su propia tarjeta moderna e independiente
                 st.markdown('<div class="card-modern">', unsafe_allow_html=True)
                 st.markdown(f"### 📌 {t['titulo']}")
                 estado_txt = "🟢 Abierta para entrega" if t['activa'] else "🔴 Cerrada"
@@ -342,7 +365,6 @@ if modo == "Portal Familiar / Alumno":
                     st.markdown("---")
                     st.markdown("#### 📂 Subir archivo para esta actividad")
                     
-                    # Botón file_uploader exclusivo y único para esta actividad específica
                     archivo_subido = st.file_uploader(
                         f"Selecciona tu archivo para: {t['titulo']}", 
                         type=["pdf", "png", "jpg", "jpeg", "txt", "docx"], 
@@ -358,6 +380,7 @@ if modo == "Portal Familiar / Alumno":
                                 "revision": "Entregado correctamente, pendiente de revisión.",
                                 "calificacion": None
                             }
+                            globals()["shared_entregas"] = st.session_state.entregas_alumnos
                             st.success(f"¡Actividad '{t['titulo']}' enviada con éxito!")
                             st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -410,14 +433,21 @@ elif modo == "Panel Docente (Profesor)":
                 btn_crear = st.form_submit_button("Crear Actividad")
                 
                 if btn_crear and nuevo_titulo:
+                    # Sincronizamos con la variable global
+                    st.session_state.actividades = globals()["shared_actividades"]
                     nuevo_id = f"act_{len(st.session_state.actividades) + 1}"
                     st.session_state.actividades.append({"id": nuevo_id, "titulo": nuevo_titulo, "tipo": nuevo_tipo, "activa": True, "grupo": grupo_destino})
-                    st.success(f"¡Actividad '{nuevo_titulo}' creada con éxito!")
+                    globals()["shared_actividades"] = st.session_state.actividades
+                    st.success(f"¡Actividad '{nuevo_titulo}' creada con éxito y sincronizada para todos!")
                     st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
             st.markdown("---")
             st.subheader("Listado de Actividades Actuales")
+            
+            # Asegurar carga actual global
+            st.session_state.actividades = globals()["shared_actividades"]
+            
             for idx, act in enumerate(st.session_state.actividades):
                 st.markdown('<div class="card-modern">', unsafe_allow_html=True)
                 col_a, col_b, col_c = st.columns([3, 1, 1])
@@ -427,9 +457,11 @@ elif modo == "Panel Docente (Profesor)":
                     nuevo_estado = st.toggle("Activa", value=act['activa'], key=f"toggle_{act['id']}_{idx}")
                     if nuevo_estado != act['activa']:
                         st.session_state.actividades[idx]['activa'] = nuevo_estado
+                        globals()["shared_actividades"] = st.session_state.actividades
                 with col_c:
                     if st.button("🗑️ Eliminar", key=f"del_{act['id']}_{idx}"):
                         st.session_state.actividades.pop(idx)
+                        globals()["shared_actividades"] = st.session_state.actividades
                         st.success("Actividad eliminada.")
                         st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -439,6 +471,8 @@ elif modo == "Panel Docente (Profesor)":
             st.subheader("🤖 Asistente de Revisión Inteligente")
             st.markdown("Utiliza asistencia en segundo plano para procesar tareas y generar propuestas de retroalimentación profesional y calificaciones.")
             
+            st.session_state.entregas_alumnos = globals()["shared_entregas"]
+
             if not client:
                 st.warning("⚠️ La API de Gemini no está configurada. Añade tu `GEMINI_API_KEY` en los secrets de Streamlit Cloud.")
             else:
@@ -475,6 +509,7 @@ elif modo == "Panel Docente (Profesor)":
                                  
                                  st.session_state.entregas_alumnos[alumno_sel_rev][act_sel_id]['revision'] = response.text
                                  st.session_state.entregas_alumnos[alumno_sel_rev][act_sel_id]['calificacion'] = 9.5
+                                 globals()["shared_entregas"] = st.session_state.entregas_alumnos
                              except Exception as e:
                                  st.error(f"Error al procesar con IA: {e}")
                  else:

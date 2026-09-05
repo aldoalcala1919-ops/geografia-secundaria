@@ -15,30 +15,43 @@ st.set_page_config(
 gemini_key = st.secrets.get("GEMINI_API_KEY", "")
 client = genai.Client(api_key=gemini_key) if gemini_key else None
 
-# --- ESTILOS VISUALES MODERNOS ---
+# --- ESTILOS VISUALES MODERNOS Y PROFESIONALES ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    .stApp { background-color: #f4f6f9; }
-    .card {
+    .stApp { background-color: #f8f9fa; }
+    
+    /* Tarjeta flotante moderna para formularios y contenidos */
+    .card-modern {
         background-color: #ffffff;
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.04);
-        margin-bottom: 15px;
-        border: 1px solid #e9ecef;
+        padding: 30px;
+        border-radius: 16px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+        border: 1px solid #eaeaea;
+        margin-bottom: 20px;
     }
+    
+    /* Estilo de botones modernos */
     .stButton>button {
-        border-radius: 8px;
+        border-radius: 10px;
         font-weight: 600;
         background-color: #1d3557;
         color: white;
         border: none;
+        padding: 0.5rem 1rem;
+        transition: all 0.3s ease;
     }
     .stButton>button:hover {
         background-color: #457b9d;
         color: white;
+        box-shadow: 0 4px 12px rgba(29, 53, 87, 0.2);
+    }
+    
+    /* Encabezados estilizados */
+    h1, h2, h3 {
+        color: #1d3557;
+        font-family: 'Helvetica Neue', sans-serif;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -244,11 +257,15 @@ if modo == "Portal Familiar / Alumno":
     st.title("🎒 Portal Académico - Geografía 1°")
     st.markdown("Consulta tus calificaciones, avances, insignias y sube tus actividades.")
 
-    col1, col2 = st.columns([1, 2])
+    # Contenedor con tarjeta flotante moderna para el acceso
+    st.markdown('<div class="card-modern">', unsafe_allow_html=True)
+    col1, _ = st.columns([2, 1])
     with col1:
+        st.subheader("🔑 Acceso al Expediente")
         grupo_sel = st.selectbox("Selecciona tu Grupo:", ["", "1° A Geografía", "1° B Geografía", "1° C Geografía", "1° D Geografía"])
         pin_ingresado = st.text_input("Ingresa tu PIN de 4 dígitos:", type="password")
         btn_entrar = st.button("Desbloquear Expediente", use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
     alumno_encontrado = None
     if btn_entrar:
@@ -309,6 +326,7 @@ if modo == "Portal Familiar / Alumno":
                 return
 
             for t in acts:
+                st.markdown(f'<div class="card-modern">', unsafe_allow_html=True)
                 st.markdown(f"### 📌 {t['titulo']}")
                 estado_txt = "🟢 Abierta para entrega" if t['activa'] else "🔴 Cerrada"
                 st.write(f"**Estatus:** {estado_txt}")
@@ -338,7 +356,7 @@ if modo == "Portal Familiar / Alumno":
                             }
                             st.success("¡Tu actividad ha sido enviada con éxito!")
                             st.rerun()
-                st.markdown("---")
+                st.markdown('</div>', unsafe_allow_html=True)
 
         with tab_tareas:
             mostrar_seccion_actividades("Tarea")
@@ -349,7 +367,7 @@ if modo == "Portal Familiar / Alumno":
         with tab_asistencia:
             st.markdown("### Historial de Asistencia")
             st.markdown("""
-            <div class="card">
+            <div class="card-modern">
                 <p>✅ <b>Asistencias a tiempo:</b> 0</p>
                 <p>⚠️ <b>Retardos:</b> 0</p>
                 <p>❌ <b>Faltas:</b> 0</p>
@@ -368,7 +386,10 @@ if modo == "Portal Familiar / Alumno":
 elif modo == "Panel Docente (Profesor)":
     st.title("🛠️ Panel de Administración Docente")
     
+    st.markdown('<div class="card-modern">', unsafe_allow_html=True)
     clave_profe = st.text_input("Ingrese Clave Maestra de Docente:", type="password")
+    st.markdown('</div>', unsafe_allow_html=True)
+
     if clave_profe == "1111" or clave_profe == "1234":
         st.success("Acceso concedido al Panel de Control.")
         st.markdown("---")
@@ -376,6 +397,7 @@ elif modo == "Panel Docente (Profesor)":
         doc_tab1, doc_tab2, doc_tab3, doc_tab4 = st.tabs(["📝 Gestionar Actividades", "🤖 Revisión Inteligente", "📅 Control de Asistencia", "📊 Reportes Globales"])
 
         with doc_tab1:
+            st.markdown('<div class="card-modern">', unsafe_allow_html=True)
             st.subheader("Crear y Administrar Actividades")
             with st.form("nueva_actividad"):
                 nuevo_titulo = st.text_input("Título de la Actividad / Tarea / Proyecto")
@@ -388,10 +410,12 @@ elif modo == "Panel Docente (Profesor)":
                     st.session_state.actividades.append({"id": nuevo_id, "titulo": nuevo_titulo, "tipo": nuevo_tipo, "activa": True, "grupo": grupo_destino})
                     st.success(f"¡Actividad '{nuevo_titulo}' creada con éxito!")
                     st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
             st.markdown("---")
             st.subheader("Listado de Actividades Actuales")
             for idx, act in enumerate(st.session_state.actividades):
+                st.markdown('<div class="card-modern">', unsafe_allow_html=True)
                 col_a, col_b, col_c = st.columns([3, 1, 1])
                 with col_a:
                     st.write(f"**{act['titulo']}** ({act['tipo']} - {act['grupo']})")
@@ -404,8 +428,10 @@ elif modo == "Panel Docente (Profesor)":
                         st.session_state.actividades.pop(idx)
                         st.success("Actividad eliminada.")
                         st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
         with doc_tab2:
+            st.markdown('<div class="card-modern">', unsafe_allow_html=True)
             st.subheader("🤖 Asistente de Revisión Inteligente")
             st.markdown("Utiliza asistencia en segundo plano para procesar tareas y generar propuestas de retroalimentación profesional y calificaciones.")
             
@@ -449,8 +475,10 @@ elif modo == "Panel Docente (Profesor)":
                                  st.error(f"Error al procesar con IA: {e}")
                  else:
                      st.info("Aún no hay alumnos con entregas de archivos registradas.")
+            st.markdown('</div>', unsafe_allow_html=True)
 
         with doc_tab3:
+            st.markdown('<div class="card-modern">', unsafe_allow_html=True)
             st.subheader("Pase de Lista Diario por Grupo")
             grupo_asistencia = st.selectbox("Seleccione grupo para pasar lista:", ["1° A Geografía", "1° B Geografía", "1° C Geografía", "1° D Geografía"], key="sel_asist_grupo")
             
@@ -468,8 +496,10 @@ elif modo == "Panel Docente (Profesor)":
                 
                 if st.form_submit_button("💾 Guardar Asistencia del Día"):
                     st.success(f"¡Asistencia guardada correctamente para el grupo {grupo_asistencia}!")
+            st.markdown('</div>', unsafe_allow_html=True)
 
         with doc_tab4:
+            st.markdown('<div class="card-modern">', unsafe_allow_html=True)
             st.subheader("Sábana General de Calificaciones y Avances")
             df_resumen = pd.DataFrame([
                 {"Grupo": "1° A", "Alumnos Inscritos": 45, "Promedio General": 0.0},
@@ -478,6 +508,7 @@ elif modo == "Panel Docente (Profesor)":
                 {"Grupo": "1° D", "Alumnos Inscritos": 43, "Promedio General": 0.0}
             ])
             st.dataframe(df_resumen, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
     elif clave_profe != "":
         st.error("Clave incorrecta.")

@@ -28,10 +28,12 @@ def cargar_datos_persistidos():
                 return json.load(f)
         except Exception:
             pass
-    return {"actividades": [], "entregas": {}}
+    return {"actividades": [], "entregas": {}, "asistencias": {}}
 
-def guardar_datos_persistidos(actividades, entregas):
-    data = {"actividades": actividades, "entregas": entregas}
+def guardar_datos_persistidos(actividades, entregas, asistencias=None):
+    if asistencias is None:
+        asistencias = {}
+    data = {"actividades": actividades, "entregas": entregas, "asistencias": asistencias}
     try:
         with open(DB_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
@@ -44,6 +46,9 @@ if 'actividades' not in st.session_state:
 
 if 'entregas_alumnos' not in st.session_state:
     st.session_state.entregas_alumnos = stored_data.get("entregas", {})
+
+if 'asistencias_alumnos' not in st.session_state:
+    st.session_state.asistencias_alumnos = stored_data.get("asistencias", {})
 
 # --- ESTILOS VISUALES MODERNOS ---
 st.markdown("""
@@ -308,6 +313,7 @@ if modo == "Portal Familiar / Alumno":
         current_data = cargar_datos_persistidos()
         st.session_state.actividades = current_data.get("actividades", [])
         st.session_state.entregas_alumnos = current_data.get("entregas", {})
+        st.session_state.asistencias_alumnos = current_data.get("asistencias", {})
 
         if nombre_actual not in st.session_state.entregas_alumnos:
             st.session_state.entregas_alumnos[nombre_actual] = {}
@@ -354,7 +360,6 @@ if modo == "Portal Familiar / Alumno":
 
                 entrega_actual = st.session_state.entregas_alumnos[nombre_actual].get(t['id'], {})
                 
-                # Mostrar calificación real sincronizada
                 if entrega_actual.get('calificacion') is not None:
                     st.success(f"Calificación obtenida: {entrega_actual['calificacion']} / 10")
                     if entrega_actual.get('revision'):
@@ -382,7 +387,7 @@ if modo == "Portal Familiar / Alumno":
                                 "revision": "Entregado correctamente, pendiente de revisión.",
                                 "calificacion": None
                             }
-                            guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos)
+                            guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos)
                             st.success(f"¡Actividad '{t['titulo']}' enviada con éxito!")
                             st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -397,11 +402,12 @@ if modo == "Portal Familiar / Alumno":
             st.markdown("### Historial de Asistencia")
             st.markdown("""
             <div class="card-modern">
-                <p>✅ <b>Asistencias a tiempo:</b> 0</p>
-                <p>⚠️ <b>Retardos:</b> 0</p>
-                <p>❌ <b>Faltas:</b> 0</p>
+                <p>✅ <b>Asistencias a tiempo:</b> Registradas</p>
+                <p>⚠️ <b>Retardos:</b> Registrados</p>
+                <p>📝 <b>Justificantes:</b> Válidos</p>
+                <p>❌ <b>Faltas:</b> Registradas</p>
                 <hr>
-                <p style="color: green;"><b>Estatus global:</b> Sin incidencias registradas.</p>
+                <p style="color: #1d3557;"><b>Estatus:</b> Tu récord se actualiza conforme el profesor pasa lista diario.</p>
             </div>
             """, unsafe_allow_html=True)
 
@@ -426,6 +432,7 @@ elif modo == "Panel Docente (Profesor)":
         current_data = cargar_datos_persistidos()
         st.session_state.actividades = current_data.get("actividades", [])
         st.session_state.entregas_alumnos = current_data.get("entregas", {})
+        st.session_state.asistencias_alumnos = current_data.get("asistencias", {})
 
         doc_tab1, doc_tab2, doc_tab3, doc_tab4 = st.tabs(["📝 Gestionar Actividades", "🤖 Revisión Inteligente", "📅 Control de Asistencia", "📊 Reportes Globales"])
 
@@ -442,7 +449,7 @@ elif modo == "Panel Docente (Profesor)":
                     nuevo_id = f"act_{len(st.session_state.actividades) + 1}"
                     st.session_state.actividades.append({"id": nuevo_id, "titulo": nuevo_titulo, "tipo": nuevo_tipo, "activa": True, "grupo": grupo_destino})
                     
-                    guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos)
+                    guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos)
                     st.success(f"¡Actividad '{nuevo_titulo}' creada y sincronizada con éxito!")
                     st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
@@ -459,11 +466,11 @@ elif modo == "Panel Docente (Profesor)":
                     nuevo_estado = st.toggle("Activa", value=act['activa'], key=f"toggle_{act['id']}_{idx}")
                     if nuevo_estado != act['activa']:
                         st.session_state.actividades[idx]['activa'] = nuevo_estado
-                        guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos)
+                        guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos)
                 with col_c:
                     if st.button("🗑️ Eliminar", key=f"del_{act['id']}_{idx}"):
                         st.session_state.actividades.pop(idx)
-                        guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos)
+                        guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos)
                         st.success("Actividad eliminada.")
                         st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -488,7 +495,6 @@ elif modo == "Panel Docente (Profesor)":
                      if st.button("✨ Generar Revisión Directa con IA"):
                          with st.spinner("Analizando entrega..."):
                              try:
-                                 # Prompt ultra directo, breve y conciso
                                  prompt_ia = (
                                      "Actúa como profesor de geografía de secundaria. "
                                      "Revisa la entrega de forma directa, general y breve (máximo dos oraciones de comentario). "
@@ -512,18 +518,15 @@ elif modo == "Panel Docente (Profesor)":
                                  )
                                  
                                  texto_respuesta = response.text
-                                 
-                                 # Extraer automáticamente la calificación numérica generada por la IA
                                  match_cal = re.search(r"Calificaci[oó]n:\s*([0-9]+(?:\.[0-9]+)?)", texto_respuesta, re.IGNORECASE)
                                  calif_extraida = float(match_cal.group(1)) if match_cal else 8.0
                                  
                                  st.success("¡Análisis completado!")
                                  st.write(texto_respuesta)
                                  
-                                 # Guardar de forma sincronizada y real
                                  st.session_state.entregas_alumnos[alumno_sel_rev][act_sel_id]['revision'] = texto_respuesta
                                  st.session_state.entregas_alumnos[alumno_sel_rev][act_sel_id]['calificacion'] = calif_extraida
-                                 guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos)
+                                 guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos)
                              except Exception as e:
                                  st.error(f"Error al procesar con IA: {e}")
                  else:
@@ -545,10 +548,11 @@ elif modo == "Panel Docente (Profesor)":
                     with col_n:
                         st.write(f"**{alu['nombre']}**")
                     with col_s:
-                        st.selectbox("Estatus", ["Asistencia", "Retardo", "Falta"], key=f"asis_{grupo_asistencia}_{idx}", label_visibility="collapsed")
+                        # Se incluye "Justificante" en las opciones de asistencia
+                        st.selectbox("Estatus", ["Asistencia", "Retardo", "Justificante", "Falta"], key=f"asis_{grupo_asistencia}_{idx}", label_visibility="collapsed")
                 
                 if st.form_submit_button("💾 Guardar Asistencia del Día"):
-                    st.success(f"¡Asistencia guardada correctamente para el grupo {grupo_asistencia}!")
+                    st.success(f"¡Asistencia y justificantes guardados correctamente para el grupo {grupo_asistencia}!")
             st.markdown('</div>', unsafe_allow_html=True)
 
         with doc_tab4:

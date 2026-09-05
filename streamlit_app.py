@@ -17,7 +17,7 @@ st.set_page_config(
 gemini_key = st.secrets.get("GEMINI_API_KEY", "")
 client = genai.Client(api_key=gemini_key) if gemini_key else None
 
-# --- ARCHIVO LOCAL PARA PERSISTENCIA ENTRE DISPOSITIVOS ---
+# --- PERSISTENCIA ROBUSTA EN JSON ---
 DB_FILE = "school_database.json"
 
 def cargar_datos_persistidos():
@@ -25,7 +25,7 @@ def cargar_datos_persistidos():
         try:
             with open(DB_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except:
+        except Exception:
             pass
     return {"actividades": [], "entregas": {}}
 
@@ -34,12 +34,11 @@ def guardar_datos_persistidos(actividades, entregas):
     try:
         with open(DB_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
-    except:
-        pass
+    except Exception as e:
+        st.error(f"Error al guardar datos: {e}")
 
-# Cargamos datos persistidos al iniciar
+# Sincronización inicial de estado
 stored_data = cargar_datos_persistidos()
-
 if 'actividades' not in st.session_state:
     st.session_state.actividades = stored_data.get("actividades", [])
 
@@ -309,6 +308,11 @@ if modo == "Portal Familiar / Alumno":
 
         st.markdown("---")
 
+        # Cargar datos más recientes
+        current_data = cargar_datos_persistidos()
+        st.session_state.actividades = current_data.get("actividades", [])
+        st.session_state.entregas_alumnos = current_data.get("entregas", {})
+
         if nombre_actual not in st.session_state.entregas_alumnos:
             st.session_state.entregas_alumnos[nombre_actual] = {}
 
@@ -337,14 +341,10 @@ if modo == "Portal Familiar / Alumno":
 
         st.markdown("---")
 
-        # --- PESTAÑAS INDIVIDUALES CON CARGA INDEPENDIENTE ---
+        # --- PESTAÑAS INDIVIDUALES ---
         tab_tareas, tab_redacciones, tab_asistencia, tab_proyectos = st.tabs(["📚 Tareas", "✍️ Redacciones", "📅 Asistencia", "🧪 Proyectos PDA"])
 
         def mostrar_seccion_actividades(tipo_filtro):
-            # Recargamos siempre desde el archivo persistente para sincronización móvil/PC
-            current_data = cargar_datos_persistidos()
-            st.session_state.actividades = current_data.get("actividades", [])
-            
             acts = [a for a in st.session_state.actividades if a['tipo'] == tipo_filtro]
             
             if not acts:
@@ -365,7 +365,7 @@ if modo == "Portal Familiar / Alumno":
                         st.info(f"**Comentarios del profesor:** {entrega_actual['revision']}")
                 
                 if entrega_actual.get('archivo'):
-                    st.info(f"📄 **Archivo ya entregado:** {entrega_actual['archivo']}")
+                    st.info(f"📄 **Archivo entregado:** {entrega_actual['archivo']}")
 
                 if t['activa']:
                     st.markdown("---")
@@ -379,9 +379,10 @@ if modo == "Portal Familiar / Alumno":
                     
                     if archivo_subido is not None:
                         if st.button(f"🚀 Enviar tarea: {t['titulo']}", key=f"btn_enviar_indiv_{t['id']}"):
+                            # Guardamos metadatos limpios y bytes seguros para revisión por IA
                             st.session_state.entregas_alumnos[nombre_actual][t['id']] = {
                                 "archivo": archivo_subido.name,
-                                "contenido_bytes": archivo_subido.getvalue(),
+                                "contenido_bytes": list(archivo_subido.getvalue()),
                                 "tipo_archivo": archivo_subido.type,
                                 "revision": "Entregado correctamente, pendiente de revisión.",
                                 "calificacion": None
@@ -427,6 +428,11 @@ elif modo == "Panel Docente (Profesor)":
         st.success("Acceso concedido al Panel de Control.")
         st.markdown("---")
 
+        # Cargar datos actualizados al entrar al panel
+        current_data = cargar_datos_persistidos()
+        st.session_state.actividades = current_data.get("actividades", [])
+        st.session_state.entregas_alumnos = current_data.get("entregas", {})
+
         doc_tab1, doc_tab2, doc_tab3, doc_tab4 = st.tabs(["📝 Gestionar Actividades", "🤖 Revisión Inteligente", "📅 Control de Asistencia", "📊 Reportes Globales"])
 
         with doc_tab1:
@@ -439,24 +445,18 @@ elif modo == "Panel Docente (Profesor)":
                 btn_crear = st.form_submit_button("Crear Actividad")
                 
                 if btn_crear and nuevo_titulo:
-                    current_data = cargar_datos_persistidos()
-                    st.session_state.actividades = current_data.get("actividades", [])
-                    
                     nuevo_id = f"act_{len(st.session_state.actividades) + 1}"
                     st.session_state.actividades.append({"id": nuevo_id, "titulo": nuevo_titulo, "tipo": nuevo_tipo, "activa": True, "grupo": grupo_destino})
                     
                     guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos)
-                    st.success(f"¡Actividad '{nuevo_titulo}' creada y sincronizada en la nube con éxito!")
+                    st.success(f"¡Actividad '{nuevo_titulo}' creada y sincronizada con éxito!")
                     st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
             st.markdown("---")
             st.subheader("Listado de Actividades Actuales")
             
-            current_data = cargar_datos_persistidos()
-            st.session_state.actividades = current_data.get("actividades", [])
-            
-            for idx, act in enumerate(st.session_state.actividades):
+            for idx, act in enumerate(list(st.session_state.actividades)):
                 st.markdown('<div class="card-modern">', unsafe_allow_html=True)
                 col_a, col_b, col_c = st.columns([3, 1, 1])
                 with col_a:
@@ -479,11 +479,8 @@ elif modo == "Panel Docente (Profesor)":
             st.subheader("🤖 Asistente de Revisión Inteligente")
             st.markdown("Utiliza asistencia en segundo plano para procesar tareas y generar propuestas de retroalimentación profesional y calificaciones.")
             
-            current_data = cargar_datos_persistidos()
-            st.session_state.entregas_alumnos = current_data.get("entregas", {})
-
             if not client:
-                st.warning("⚠️ La API de Gemini não está configurada. Añade tu `GEMINI_API_KEY` en los secrets de Streamlit Cloud.")
+                st.warning("⚠️ La API de Gemini no está configurada. Añade tu `GEMINI_API_KEY` en los secrets de Streamlit Cloud.")
             else:
                  alumnos_con_entregas = [a['nombre'] for a in st.session_state.alumnos if a['nombre'] in st.session_state.entregas_alumnos and st.session_state.entregas_alumnos[a['nombre']]]
                  if alumnos_con_entregas:
@@ -501,9 +498,11 @@ elif modo == "Panel Docente (Profesor)":
                                  
                                  contents = [prompt_ia]
                                  if entrega_data.get('contenido_bytes'):
+                                     # Convertimos de nuevo los bytes guardados para que la IA los lea correctamente
+                                     byte_data = bytes(entrega_data['contenido_bytes'])
                                      contents.append(
                                          types.Part.from_bytes(
-                                             data=entrega_data['contenido_bytes'],
+                                             data=byte_data,
                                              mime_type=entrega_data['tipo_archivo'],
                                          )
                                      )

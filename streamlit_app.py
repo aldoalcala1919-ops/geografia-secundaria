@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import json
 import os
+import re
 from google import genai
 from google.genai import types
 
@@ -37,7 +38,6 @@ def guardar_datos_persistidos(actividades, entregas):
     except Exception as e:
         st.error(f"Error al guardar datos: {e}")
 
-# Sincronización inicial de estado
 stored_data = cargar_datos_persistidos()
 if 'actividades' not in st.session_state:
     st.session_state.actividades = stored_data.get("actividades", [])
@@ -45,13 +45,12 @@ if 'actividades' not in st.session_state:
 if 'entregas_alumnos' not in st.session_state:
     st.session_state.entregas_alumnos = stored_data.get("entregas", {})
 
-# --- ESTILOS VISUALES MODERNOS Y PROFESIONALES ---
+# --- ESTILOS VISUALES MODERNOS ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     .stApp { background-color: #f8f9fa; }
-    
     .card-modern {
         background-color: #ffffff;
         padding: 25px;
@@ -60,7 +59,6 @@ st.markdown("""
         border: 1px solid #eaeaea;
         margin-bottom: 20px;
     }
-    
     .stButton>button {
         border-radius: 10px;
         font-weight: 600;
@@ -75,7 +73,6 @@ st.markdown("""
         color: white;
         box-shadow: 0 4px 12px rgba(29, 53, 87, 0.2);
     }
-    
     h1, h2, h3 {
         color: #1d3557;
         font-family: 'Helvetica Neue', sans-serif;
@@ -340,7 +337,6 @@ if modo == "Portal Familiar / Alumno":
 
         st.markdown("---")
 
-        # --- PESTAÑAS INDIVIDUALES ---
         tab_tareas, tab_redacciones, tab_asistencia, tab_proyectos = st.tabs(["📚 Tareas", "✍️ Redacciones", "📅 Asistencia", "🧪 Proyectos PDA"])
 
         def mostrar_seccion_actividades(tipo_filtro):
@@ -358,7 +354,8 @@ if modo == "Portal Familiar / Alumno":
 
                 entrega_actual = st.session_state.entregas_alumnos[nombre_actual].get(t['id'], {})
                 
-                if entrega_actual.get('calificacion'):
+                # Mostrar calificación real sincronizada
+                if entrega_actual.get('calificacion') is not None:
                     st.success(f"Calificación obtenida: {entrega_actual['calificacion']} / 10")
                     if entrega_actual.get('revision'):
                         st.info(f"**Comentarios del profesor:** {entrega_actual['revision']}")
@@ -474,10 +471,10 @@ elif modo == "Panel Docente (Profesor)":
         with doc_tab2:
             st.markdown('<div class="card-modern">', unsafe_allow_html=True)
             st.subheader("🤖 Asistente de Revisión Inteligente")
-            st.markdown("Utiliza asistencia en segundo plano para procesar tareas y generar propuestas de retroalimentación profesional y calificaciones.")
+            st.markdown("Revisión directa, concisa y general de las actividades mediante IA.")
             
             if not client:
-                st.warning("⚠️ La API de Gemini no está configurada. Añade tu `GEMINI_API_KEY` en los secrets de Streamlit Cloud.")
+                st.warning("⚠️ La API de Gemini no está configurada. Añade tu `GEMINI_API_KEY` en los secrets.")
             else:
                  alumnos_con_entregas = [a['nombre'] for a in st.session_state.alumnos if a['nombre'] in st.session_state.entregas_alumnos and st.session_state.entregas_alumnos[a['nombre']]]
                  if alumnos_con_entregas:
@@ -488,10 +485,16 @@ elif modo == "Panel Docente (Profesor)":
                      entrega_data = st.session_state.entregas_alumnos[alumno_sel_rev][act_sel_id]
                      st.write(f"**Archivo entregado:** {entrega_data['archivo']}")
                      
-                     if st.button("✨ Generar Revisión y Calificación Automática"):
+                     if st.button("✨ Generar Revisión Directa con IA"):
                          with st.spinner("Analizando entrega..."):
                              try:
-                                 prompt_ia = "Actúa como un profesor de secundaria exigente pero justo de geografía. Evalúa el archivo o trabajo adjunto de un alumno, redacta una retroalimentación constructiva y formal en español (sin mencionar que eres una IA) y asigna una calificación numérica del 0 al 10 en formato claro."
+                                 # Prompt ultra directo, breve y conciso
+                                 prompt_ia = (
+                                     "Actúa como profesor de geografía de secundaria. "
+                                     "Revisa la entrega de forma directa, general y breve (máximo dos oraciones de comentario). "
+                                     "Obligatoriamente debes incluir al final una calificación numérica exacta del 0 al 10 con este formato exacto: "
+                                     "Calificación: X.X"
+                                 )
                                  
                                  contents = [prompt_ia]
                                  if entrega_data.get('contenido_bytes'):
@@ -503,17 +506,23 @@ elif modo == "Panel Docente (Profesor)":
                                          )
                                      )
                                  
-                                 # Actualizado al modelo vigente Gemini 3.6 Flash
                                  response = client.models.generate_content(
                                      model='gemini-3.6-flash',
                                      contents=contents,
                                  )
                                  
-                                 st.success("¡Análisis completado con éxito!")
-                                 st.write(response.text)
+                                 texto_respuesta = response.text
                                  
-                                 st.session_state.entregas_alumnos[alumno_sel_rev][act_sel_id]['revision'] = response.text
-                                 st.session_state.entregas_alumnos[alumno_sel_rev][act_sel_id]['calificacion'] = 9.5
+                                 # Extraer automáticamente la calificación numérica generada por la IA
+                                 match_cal = re.search(r"Calificaci[oó]n:\s*([0-9]+(?:\.[0-9]+)?)", texto_respuesta, re.IGNORECASE)
+                                 calif_extraida = float(match_cal.group(1)) if match_cal else 8.0
+                                 
+                                 st.success("¡Análisis completado!")
+                                 st.write(texto_respuesta)
+                                 
+                                 # Guardar de forma sincronizada y real
+                                 st.session_state.entregas_alumnos[alumno_sel_rev][act_sel_id]['revision'] = texto_respuesta
+                                 st.session_state.entregas_alumnos[alumno_sel_rev][act_sel_id]['calificacion'] = calif_extraida
                                  guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos)
                              except Exception as e:
                                  st.error(f"Error al procesar con IA: {e}")

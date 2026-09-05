@@ -22,17 +22,15 @@ st.markdown("""
     footer {visibility: hidden;}
     .stApp { background-color: #f8f9fa; }
     
-    /* Tarjeta flotante moderna para formularios y contenidos */
     .card-modern {
         background-color: #ffffff;
-        padding: 30px;
+        padding: 25px;
         border-radius: 16px;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.04);
         border: 1px solid #eaeaea;
         margin-bottom: 20px;
     }
     
-    /* Estilo de botones modernos */
     .stButton>button {
         border-radius: 10px;
         font-weight: 600;
@@ -48,7 +46,6 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(29, 53, 87, 0.2);
     }
     
-    /* Encabezados estilizados */
     h1, h2, h3 {
         color: #1d3557;
         font-family: 'Helvetica Neue', sans-serif;
@@ -56,7 +53,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- BASE DE DATOS DE ALUMNOS (178 ALUMNOS Y PROFESOR) ---
+# --- BASE DE DATOS DE ALUMNOS ---
 if 'alumnos' not in st.session_state:
     st.session_state.alumnos = [
         {"grupo": "1° A Geografía", "nombre": "ACOSTA DE LA FUENTE JOSE ANTONIO", "pin": "5084"},
@@ -255,9 +252,8 @@ modo = st.sidebar.radio("Selecciona el portal:", ["Portal Familiar / Alumno", "P
 # ==========================================
 if modo == "Portal Familiar / Alumno":
     st.title("🎒 Portal Académico - Geografía 1°")
-    st.markdown("Consulta tus calificaciones, avances, insignias y sube tus actividades.")
+    st.markdown("Consulta tus calificaciones, avances, insignias y sube tus actividades de forma individual.")
 
-    # Contenedor con tarjeta flotante moderna para el acceso
     st.markdown('<div class="card-modern">', unsafe_allow_html=True)
     col1, _ = st.columns([2, 1])
     with col1:
@@ -316,7 +312,7 @@ if modo == "Portal Familiar / Alumno":
 
         st.markdown("---")
 
-        # --- PESTAÑAS INDIVIDUALES CON CARGA DE ARCHIVOS INTUITIVA ---
+        # --- PESTAÑAS INDIVIDUALES CON BOTÓN DE CARGA INDEPENDIENTE POR CADA ACTIVIDAD ---
         tab_tareas, tab_redacciones, tab_asistencia, tab_proyectos = st.tabs(["📚 Tareas", "✍️ Redacciones", "📅 Asistencia", "🧪 Proyectos PDA"])
 
         def mostrar_seccion_actividades(tipo_filtro):
@@ -326,7 +322,8 @@ if modo == "Portal Familiar / Alumno":
                 return
 
             for t in acts:
-                st.markdown(f'<div class="card-modern">', unsafe_allow_html=True)
+                # Cada actividad vive en su propia tarjeta moderna e independiente
+                st.markdown('<div class="card-modern">', unsafe_allow_html=True)
                 st.markdown(f"### 📌 {t['titulo']}")
                 estado_txt = "🟢 Abierta para entrega" if t['activa'] else "🔴 Cerrada"
                 st.write(f"**Estatus:** {estado_txt}")
@@ -337,16 +334,23 @@ if modo == "Portal Familiar / Alumno":
                     st.success(f"Calificación obtenida: {entrega_actual['calificacion']} / 10")
                     if entrega_actual.get('revision'):
                         st.info(f"**Comentarios del profesor:** {entrega_actual['revision']}")
+                
+                if entrega_actual.get('archivo'):
+                    st.info(f"📄 **Archivo ya entregado:** {entrega_actual['archivo']}")
 
                 if t['activa']:
                     st.markdown("---")
-                    st.markdown("#### 📂 Subir tu archivo o tarea")
-                    st.markdown("Selecciona o arrastra tu documento (PDF, imagen o texto) para entregarlo directamente:")
+                    st.markdown("#### 📂 Subir archivo para esta actividad")
                     
-                    archivo_subido = st.file_uploader(f"Cargar entrega para: {t['titulo']}", type=["pdf", "png", "jpg", "jpeg", "txt", "docx"], key=f"file_{t['id']}")
+                    # Botón file_uploader exclusivo y único para esta actividad específica
+                    archivo_subido = st.file_uploader(
+                        f"Selecciona tu archivo para: {t['titulo']}", 
+                        type=["pdf", "png", "jpg", "jpeg", "txt", "docx"], 
+                        key=f"upload_independiente_{t['id']}"
+                    )
                     
                     if archivo_subido is not None:
-                        if st.button("🚀 Enviar Actividad", key=f"btn_enviar_{t['id']}"):
+                        if st.button(f"🚀 Enviar tarea: {t['titulo']}", key=f"btn_enviar_indiv_{t['id']}"):
                             st.session_state.entregas_alumnos[nombre_actual][t['id']] = {
                                 "archivo": archivo_subido.name,
                                 "contenido_bytes": archivo_subido.getvalue(),
@@ -354,7 +358,7 @@ if modo == "Portal Familiar / Alumno":
                                 "revision": "Entregado correctamente, pendiente de revisión.",
                                 "calificacion": None
                             }
-                            st.success("¡Tu actividad ha sido enviada con éxito!")
+                            st.success(f"¡Actividad '{t['titulo']}' enviada con éxito!")
                             st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
 

@@ -308,7 +308,6 @@ if modo == "Portal Familiar / Alumno":
 
         st.markdown("---")
 
-        # Cargar datos más recientes
         current_data = cargar_datos_persistidos()
         st.session_state.actividades = current_data.get("actividades", [])
         st.session_state.entregas_alumnos = current_data.get("entregas", {})
@@ -379,7 +378,6 @@ if modo == "Portal Familiar / Alumno":
                     
                     if archivo_subido is not None:
                         if st.button(f"🚀 Enviar tarea: {t['titulo']}", key=f"btn_enviar_indiv_{t['id']}"):
-                            # Guardamos metadatos limpios y bytes seguros para revisión por IA
                             st.session_state.entregas_alumnos[nombre_actual][t['id']] = {
                                 "archivo": archivo_subido.name,
                                 "contenido_bytes": list(archivo_subido.getvalue()),
@@ -428,7 +426,6 @@ elif modo == "Panel Docente (Profesor)":
         st.success("Acceso concedido al Panel de Control.")
         st.markdown("---")
 
-        # Cargar datos actualizados al entrar al panel
         current_data = cargar_datos_persistidos()
         st.session_state.actividades = current_data.get("actividades", [])
         st.session_state.entregas_alumnos = current_data.get("entregas", {})
@@ -498,7 +495,6 @@ elif modo == "Panel Docente (Profesor)":
                                  
                                  contents = [prompt_ia]
                                  if entrega_data.get('contenido_bytes'):
-                                     # Convertimos de nuevo los bytes guardados para que la IA los lea correctamente
                                      byte_data = bytes(entrega_data['contenido_bytes'])
                                      contents.append(
                                          types.Part.from_bytes(
@@ -507,8 +503,9 @@ elif modo == "Panel Docente (Profesor)":
                                          )
                                      )
                                  
+                                 # Actualizado al modelo vigente Gemini 3.6 Flash
                                  response = client.models.generate_content(
-                                     model='gemini-2.5-flash',
+                                     model='gemini-3.6-flash',
                                      contents=contents,
                                  )
                                  

@@ -49,7 +49,6 @@ if 'entregas_alumnos' not in st.session_state:
     st.session_state.entregas_alumnos = stored_data.get("entregas", {})
 
 if 'asistencias_alumnos' not in st.session_state:
-    # Estructura: {"Nombre Alumno": {"YYYY-MM-DD": "Justificante"}}
     st.session_state.asistencias_alumnos = stored_data.get("asistencias", {})
 
 # --- ESTILOS VISUALES ADAPTADOS A MÓVIL ---
@@ -65,6 +64,16 @@ st.markdown("""
         box-shadow: 0 10px 25px rgba(0,0,0,0.04);
         border: 1px solid #eaeaea;
         margin-bottom: 20px;
+    }
+    .eval-card {
+        background-color: #f1f5f9;
+        padding: 15px;
+        border-radius: 12px;
+        border-left: 5px solid #1d3557;
+        margin-top: 10px;
+        margin-bottom: 10px;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
     .stButton>button {
         border-radius: 10px;
@@ -361,15 +370,20 @@ if modo == "Portal Familiar / Alumno":
 
                 entrega_actual = st.session_state.entregas_alumnos[nombre_actual].get(t['id'], {})
                 
+                # --- TARJETA ADAPTABLE Y MÓVIL PARA LA EVALUACIÓN ---
                 if entrega_actual.get('calificacion') is not None:
                     st.markdown("---")
                     st.markdown("#### 📋 Reporte de Evaluación IA")
-                    df_eval = pd.DataFrame([{
-                        "Actividad": t['titulo'],
-                        "Calificación": f"{entrega_actual['calificacion']} / 10",
-                        "Retroalimentación": entrega_actual.get('revision', 'Sin comentarios')
-                    }])
-                    st.dataframe(df_eval, use_container_width=True, hide_index=True)
+                    calif_val = entrega_actual['calificacion']
+                    rev_val = entrega_actual.get('revision', 'Sin comentarios')
+                    
+                    st.markdown(f"""
+                    <div class="eval-card">
+                        <p><b>Calificación:</b> <span style="font-size: 1.1em; color: #1d3557;">{calif_val} / 10</span></p>
+                        <hr style="margin: 8px 0; border-color: #cbd5e1;">
+                        <p style="margin-bottom: 0;"><b>Retroalimentación:</b><br>{rev_val}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
                 elif entrega_actual.get('revision'):
                     st.info(f"**Estatus de revisión:** {entrega_actual['revision']}")
                 
@@ -546,7 +560,6 @@ elif modo == "Panel Docente (Profesor)":
             st.subheader("📅 Control de Asistencia y Justificantes Históricos")
             st.markdown("Aquí puedes pasar lista del día o **justificar faltas de semanas anteriores** seleccionando la fecha correspondiente.")
             
-            # Selector de fecha para pase o justificación retroactiva
             fecha_asistencia = st.date_input("Fecha a registrar / justificar:", value=date.today())
             fecha_str = fecha_asistencia.strftime("%Y-%m-%d")
             
@@ -562,7 +575,6 @@ elif modo == "Panel Docente (Profesor)":
                     with col_n:
                         st.write(f"**{alu['nombre']}**")
                     with col_s:
-                        # Recuperar estatus previo si ya existe para esa fecha
                         alu_asist_dict = st.session_state.asistencias_alumnos.get(alu['nombre'], {})
                         estatus_previo = alu_asist_dict.get(fecha_str, "Asistencia")
                         opciones_estatus = ["Asistencia", "Retardo", "Justificante", "Falta"]
@@ -577,7 +589,6 @@ elif modo == "Panel Docente (Profesor)":
                         )
                 
                 if st.form_submit_button("💾 Guardar Récord de Asistencia y Justificantes"):
-                    # Guardar en el estado de sesión y persistir en JSON
                     for idx, alu in enumerate(alumnos_grupo):
                         estatus_elegido = st.session_state[f"asis_hist_{grupo_asistencia}_{idx}"]
                         if alu['nombre'] not in st.session_state.asistencias_alumnos:

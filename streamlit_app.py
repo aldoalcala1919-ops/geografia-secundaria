@@ -498,27 +498,46 @@ elif modo == "Panel Docente (Profesor)":
 
         with doc_tab2:
             st.markdown('<div class="card-modern">', unsafe_allow_html=True)
-            st.subheader("🤖 Asistente de Revisión Inteligente")
-            st.markdown("Revisión directa, concisa y general de las actividades mediante IA.")
+            st.subheader("🤖 Asistente de Revisión Inteligente por Grupo")
+            st.markdown("Filtra por grupo para ver el estatus de entregas de forma ordenada y ejecuta la revisión directa.")
             
             if not client:
                 st.warning("⚠️ La API de Gemini no está configurada. Añade tu `GEMINI_API_KEY` en los secrets.")
             else:
-                 alumnos_con_entregas = [a['nombre'] for a in st.session_state.alumnos if a['nombre'] in st.session_state.entregas_alumnos and st.session_state.entregas_alumnos[a['nombre']]]
-                 if alumnos_con_entregas:
-                     alumno_sel_rev = st.selectbox("Selecciona Alumno a Revisar:", alumnos_con_entregas)
+                 # --- SELECTOR DE GRUPO PARA FILTRAR ORDENADAMENTE ---
+                 grupo_rev_sel = st.selectbox("1. Selecciona Grupo a Revisar:", ["1° A Geografía", "1° B Geografía", "1° C Geografía", "1° D Geografía"])
+                 
+                 # Alumnos de ese grupo que tienen entregas registradas
+                 alumnos_grupo = [a for a in st.session_state.alumnos if a['grupo'] == grupo_rev_sel]
+                 alumnos_con_entregas_grupo = [a['nombre'] for a in alumnos_grupo if a['nombre'] in st.session_state.entregas_alumnos and st.session_state.entregas_alumnos[a['nombre']]]
+                 
+                 # --- MOSTRAR TABLA DE RESUMEN DE ENTREGAS DEL GRUPO ---
+                 st.markdown("#### 📊 Estatus de Entregas del Grupo")
+                 tabla_resumen_data = []
+                 for alu in alumnos_grupo:
+                     entregas_alu = st.session_state.entregas_alumnos.get(alu['nombre'], {})
+                     total_entregadas = len(entregas_alu)
+                     tabla_resumen_data.append({
+                         "Alumno": alu['nombre'],
+                         "Tareas Entregadas": total_entregadas,
+                         "Estatus": "🟢 Con entregas" if total_entregadas > 0 else "⚪ Sin entregas"
+                     })
+                 st.dataframe(pd.DataFrame(tabla_resumen_data), use_container_width=True, hide_index=True)
+                 st.markdown("---")
+
+                 if alumnos_con_entregas_grupo:
+                     alumno_sel_rev = st.selectbox("2. Selecciona Alumno con Entregas:", alumnos_con_entregas_grupo)
                      acts_alumno = list(st.session_state.entregas_alumnos[alumno_sel_rev].keys())
                      
-                     # --- MAPEO PARA MOSTRAR EL TÍTULO (ej. "PORTADA") EN VEZ DE "act_1" ---
                      mapa_titulos = {act['id']: act['titulo'] for act in st.session_state.actividades}
                      act_sel_id = st.selectbox(
-                         "Selecciona Actividad Entregada:", 
+                         "3. Selecciona Actividad Entregada:", 
                          acts_alumno, 
                          format_func=lambda x: mapa_titulos.get(x, x)
                      )
                      
                      entrega_data = st.session_state.entregas_alumnos[alumno_sel_rev][act_sel_id]
-                     st.write(f"**Archivo entregado:** {entrega_data['archivo']}")
+                     st.write(f"📄 **Archivo entregado:** `{entrega_data['archivo']}`")
                      
                      if st.button("✨ Generar Revisión Directa con IA"):
                          with st.spinner("Analizando entrega..."):
@@ -558,7 +577,7 @@ elif modo == "Panel Docente (Profesor)":
                              except Exception as e:
                                  st.error(f"Error al procesar con IA: {e}")
                  else:
-                     st.info("Aún no hay alumnos con entregas de archivos registradas.")
+                     st.info(f"Aún no hay alumnos con entregas de archivos registradas en el grupo `{grupo_rev_sel}`.")
             st.markdown('</div>', unsafe_allow_html=True)
 
         with doc_tab3:

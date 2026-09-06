@@ -50,7 +50,7 @@ if 'entregas_alumnos' not in st.session_state:
 if 'asistencias_alumnos' not in st.session_state:
     st.session_state.asistencias_alumnos = stored_data.get("asistencias", {})
 
-# --- ESTILOS VISUALES MODERNOS ---
+# --- ESTILOS VISUALES ADAPTADOS A MÓVIL Y TABLAS ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
@@ -58,7 +58,7 @@ st.markdown("""
     .stApp { background-color: #f8f9fa; }
     .card-modern {
         background-color: #ffffff;
-        padding: 25px;
+        padding: 20px;
         border-radius: 16px;
         box-shadow: 0 10px 25px rgba(0,0,0,0.04);
         border: 1px solid #eaeaea;
@@ -72,6 +72,7 @@ st.markdown("""
         border: none;
         padding: 0.5rem 1rem;
         transition: all 0.3s ease;
+        width: 100%;
     }
     .stButton>button:hover {
         background-color: #457b9d;
@@ -325,25 +326,23 @@ if modo == "Portal Familiar / Alumno":
         entregadas_count = len(st.session_state.entregas_alumnos[nombre_actual])
         progreso_porcentaje = int((entregadas_count / acts_totales * 100)) if acts_totales > 0 else 0
         
-        col_m1, col_m2, col_m3 = st.columns(3)
-        col_m1.metric("Progreso General del Curso", f"{progreso_porcentaje}%")
-        col_m2.metric("Actividades Entregadas", f"{entregadas_count} / {acts_totales}")
-        col_m3.metric("Asistencia General", "100%")
+        col_m1, col_m2 = st.columns(2)
+        col_m1.metric("Progreso del Curso", f"{progreso_porcentaje}%")
+        col_m2.metric("Entregadas", f"{entregadas_count} / {acts_totales}")
 
         st.markdown("#### Colección de Insignias")
-        ic1, ic2, ic3, ic4 = st.columns(4)
-        with ic1:
-            st.markdown("🗺️ **Explorador Inicial**\n\n*Activo en plataforma.*")
-        with ic2:
-            st.markdown("🔥 **Racha de Puntualidad**\n\n*En progreso.*")
-        with ic3:
-            st.markdown("✍️ **Pluma Escolar**\n\n*Sin asignar.*")
-        with ic4:
-            st.markdown("🔒 *Nivel 2 bloqueado*")
+        st.markdown("""
+        <div class="card-modern">
+            <p>🗺️ <b>Explorador Inicial:</b> <span style="color: green;">Activo en plataforma</span></p>
+            <p>🔥 <b>Racha de Puntualidad:</b> <span>En progreso</span></p>
+            <p>✍️ <b>Pluma Escolar:</b> <span style="color: gray;">Sin asignar</span></p>
+            <p>🔒 <b>Nivel 2:</b> <span style="color: gray;">Bloqueado</span></p>
+        </div>
+        """, unsafe_allow_html=True)
 
         st.markdown("---")
 
-        tab_tareas, tab_redacciones, tab_asistencia, tab_proyectos = st.tabs(["📚 Tareas", "✍️ Redacciones", "📅 Asistencia", "🧪 Proyectos PDA"])
+        tab_tareas, tab_redacciones, tab_asistencia, tab_proyectos = st.tabs(["📚 Tareas", "✍️ Redacciones", "📅 Asistencia", "🧪 Proyectos"])
 
         def mostrar_seccion_actividades(tipo_filtro):
             acts = [a for a in st.session_state.actividades if a['tipo'] == tipo_filtro]
@@ -360,13 +359,23 @@ if modo == "Portal Familiar / Alumno":
 
                 entrega_actual = st.session_state.entregas_alumnos[nombre_actual].get(t['id'], {})
                 
+                # --- VISTA ORDENADA EN TABLA / TARJETA PARA EL ALUMNO ---
                 if entrega_actual.get('calificacion') is not None:
-                    st.success(f"Calificación obtenida: {entrega_actual['calificacion']} / 10")
-                    if entrega_actual.get('revision'):
-                        st.info(f"**Comentarios del profesor:** {entrega_actual['revision']}")
+                    st.markdown("---")
+                    st.markdown("#### 📋 Reporte de Evaluación IA")
+                    
+                    # Estructura limpia y ordenada en formato tabla / ficha
+                    df_eval = pd.DataFrame([{
+                        "Actividad": t['titulo'],
+                        "Calificación": f"{entrega_actual['calificacion']} / 10",
+                        "Retroalimentación": entrega_actual.get('revision', 'Sin comentarios')
+                    }])
+                    st.dataframe(df_eval, use_container_width=True, hide_index=True)
+                elif entrega_actual.get('revision'):
+                    st.info(f"**Estatus de revisión:** {entrega_actual['revision']}")
                 
                 if entrega_actual.get('archivo'):
-                    st.info(f"📄 **Archivo entregado:** {entrega_actual['archivo']}")
+                    st.write(f"📄 **Archivo entregado:** `{entrega_actual['archivo']}`")
 
                 if t['activa']:
                     st.markdown("---")
@@ -434,7 +443,7 @@ elif modo == "Panel Docente (Profesor)":
         st.session_state.entregas_alumnos = current_data.get("entregas", {})
         st.session_state.asistencias_alumnos = current_data.get("asistencias", {})
 
-        doc_tab1, doc_tab2, doc_tab3, doc_tab4 = st.tabs(["📝 Gestionar Actividades", "🤖 Revisión Inteligente", "📅 Control de Asistencia", "📊 Reportes Globales"])
+        doc_tab1, doc_tab2, doc_tab3, doc_tab4 = st.tabs(["📝 Actividades", "🤖 Revisión IA", "📅 Asistencia", "📊 Reportes"])
 
         with doc_tab1:
             st.markdown('<div class="card-modern">', unsafe_allow_html=True)
@@ -468,7 +477,7 @@ elif modo == "Panel Docente (Profesor)":
                         st.session_state.actividades[idx]['activa'] = nuevo_estado
                         guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos)
                 with col_c:
-                    if st.button("🗑️ Eliminar", key=f"del_{act['id']}_{idx}"):
+                    if st.button("🗑️", key=f"del_{act['id']}_{idx}"):
                         st.session_state.actividades.pop(idx)
                         guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos)
                         st.success("Actividad eliminada.")
@@ -548,7 +557,6 @@ elif modo == "Panel Docente (Profesor)":
                     with col_n:
                         st.write(f"**{alu['nombre']}**")
                     with col_s:
-                        # Se incluye "Justificante" en las opciones de asistencia
                         st.selectbox("Estatus", ["Asistencia", "Retardo", "Justificante", "Falta"], key=f"asis_{grupo_asistencia}_{idx}", label_visibility="collapsed")
                 
                 if st.form_submit_button("💾 Guardar Asistencia del Día"):

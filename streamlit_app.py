@@ -370,7 +370,6 @@ if modo == "Portal Familiar / Alumno":
 
                 entrega_actual = st.session_state.entregas_alumnos[nombre_actual].get(t['id'], {})
                 
-                # --- TARJETA ADAPTABLE Y MÓVIL PARA LA EVALUACIÓN ---
                 if entrega_actual.get('calificacion') is not None:
                     st.markdown("---")
                     st.markdown("#### 📋 Reporte de Evaluación IA")
@@ -509,7 +508,14 @@ elif modo == "Panel Docente (Profesor)":
                  if alumnos_con_entregas:
                      alumno_sel_rev = st.selectbox("Selecciona Alumno a Revisar:", alumnos_con_entregas)
                      acts_alumno = list(st.session_state.entregas_alumnos[alumno_sel_rev].keys())
-                     act_sel_id = st.selectbox("Selecciona Actividad Entregada:", acts_alumno)
+                     
+                     # --- MAPEO PARA MOSTRAR EL TÍTULO (ej. "PORTADA") EN VEZ DE "act_1" ---
+                     mapa_titulos = {act['id']: act['titulo'] for act in st.session_state.actividades}
+                     act_sel_id = st.selectbox(
+                         "Selecciona Actividad Entregada:", 
+                         acts_alumno, 
+                         format_func=lambda x: mapa_titulos.get(x, x)
+                     )
                      
                      entrega_data = st.session_state.entregas_alumnos[alumno_sel_rev][act_sel_id]
                      st.write(f"**Archivo entregado:** {entrega_data['archivo']}")

@@ -3,6 +3,7 @@ import pandas as pd
 import json
 import os
 import re
+from datetime import date
 from google import genai
 from google.genai import types
 
@@ -48,9 +49,10 @@ if 'entregas_alumnos' not in st.session_state:
     st.session_state.entregas_alumnos = stored_data.get("entregas", {})
 
 if 'asistencias_alumnos' not in st.session_state:
+    # Estructura: {"Nombre Alumno": {"YYYY-MM-DD": "Justificante"}}
     st.session_state.asistencias_alumnos = stored_data.get("asistencias", {})
 
-# --- ESTILOS VISUALES ADAPTADOS A MÓVIL Y TABLAS ---
+# --- ESTILOS VISUALES ADAPTADOS A MÓVIL ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
@@ -359,12 +361,9 @@ if modo == "Portal Familiar / Alumno":
 
                 entrega_actual = st.session_state.entregas_alumnos[nombre_actual].get(t['id'], {})
                 
-                # --- VISTA ORDENADA EN TABLA / TARJETA PARA EL ALUMNO ---
                 if entrega_actual.get('calificacion') is not None:
                     st.markdown("---")
                     st.markdown("#### 📋 Reporte de Evaluación IA")
-                    
-                    # Estructura limpia y ordenada en formato tabla / ficha
                     df_eval = pd.DataFrame([{
                         "Actividad": t['titulo'],
                         "Calificación": f"{entrega_actual['calificacion']} / 10",
@@ -408,15 +407,15 @@ if modo == "Portal Familiar / Alumno":
             mostrar_seccion_actividades("Redaccion")
 
         with tab_asistencia:
-            st.markdown("### Historial de Asistencia")
+            st.markdown("### Historial de Asistencia y Justificantes")
             st.markdown("""
             <div class="card-modern">
                 <p>✅ <b>Asistencias a tiempo:</b> Registradas</p>
                 <p>⚠️ <b>Retardos:</b> Registrados</p>
-                <p>📝 <b>Justificantes:</b> Válidos</p>
+                <p>📝 <b>Justificantes:</b> Válidos (Aplicados por docente)</p>
                 <p>❌ <b>Faltas:</b> Registradas</p>
                 <hr>
-                <p style="color: #1d3557;"><b>Estatus:</b> Tu récord se actualiza conforme el profesor pasa lista diario.</p>
+                <p style="color: #1d3557;"><b>Estatus:</b> Tu récord se actualiza conforme el profesor registra asistencia o justificantes históricos.</p>
             </div>
             """, unsafe_allow_html=True)
 
@@ -443,7 +442,7 @@ elif modo == "Panel Docente (Profesor)":
         st.session_state.entregas_alumnos = current_data.get("entregas", {})
         st.session_state.asistencias_alumnos = current_data.get("asistencias", {})
 
-        doc_tab1, doc_tab2, doc_tab3, doc_tab4 = st.tabs(["📝 Actividades", "🤖 Revisión IA", "📅 Asistencia", "📊 Reportes"])
+        doc_tab1, doc_tab2, doc_tab3, doc_tab4 = st.tabs(["📝 Actividades", "🤖 Revisión IA", "📅 Asistencia / Justificantes", "📊 Reportes"])
 
         with doc_tab1:
             st.markdown('<div class="card-modern">', unsafe_allow_html=True)
@@ -544,23 +543,49 @@ elif modo == "Panel Docente (Profesor)":
 
         with doc_tab3:
             st.markdown('<div class="card-modern">', unsafe_allow_html=True)
-            st.subheader("Pase de Lista Diario por Grupo")
-            grupo_asistencia = st.selectbox("Seleccione grupo para pasar lista:", ["1° A Geografía", "1° B Geografía", "1° C Geografía", "1° D Geografía"], key="sel_asist_grupo")
+            st.subheader("📅 Control de Asistencia y Justificantes Históricos")
+            st.markdown("Aquí puedes pasar lista del día o **justificar faltas de semanas anteriores** seleccionando la fecha correspondiente.")
+            
+            # Selector de fecha para pase o justificación retroactiva
+            fecha_asistencia = st.date_input("Fecha a registrar / justificar:", value=date.today())
+            fecha_str = fecha_asistencia.strftime("%Y-%m-%d")
+            
+            grupo_asistencia = st.selectbox("Seleccione grupo:", ["1° A Geografía", "1° B Geografía", "1° C Geografía", "1° D Geografía"], key="sel_asist_grupo_hist")
             
             alumnos_grupo = [a for a in st.session_state.alumnos if a['grupo'] == grupo_asistencia]
-            st.markdown(f"**Total de alumnos en {grupo_asistencia}: {len(alumnos_grupo)}**")
+            st.markdown(f"**Registrando para la fecha:** `{fecha_str}` ({len(alumnos_grupo)} alumnos)")
             st.markdown("---")
             
-            with st.form("form_pase_lista"):
+            with st.form("form_pase_lista_historica"):
                 for idx, alu in enumerate(alumnos_grupo):
                     col_n, col_s = st.columns([3, 2])
                     with col_n:
                         st.write(f"**{alu['nombre']}**")
                     with col_s:
-                        st.selectbox("Estatus", ["Asistencia", "Retardo", "Justificante", "Falta"], key=f"asis_{grupo_asistencia}_{idx}", label_visibility="collapsed")
+                        # Recuperar estatus previo si ya existe para esa fecha
+                        alu_asist_dict = st.session_state.asistencias_alumnos.get(alu['nombre'], {})
+                        estatus_previo = alu_asist_dict.get(fecha_str, "Asistencia")
+                        opciones_estatus = ["Asistencia", "Retardo", "Justificante", "Falta"]
+                        idx_def = opciones_estatus.index(estatus_previo) if estatus_previo in opciones_estatus else 0
+                        
+                        st.selectbox(
+                            "Estatus", 
+                            opciones_estatus, 
+                            index=idx_def,
+                            key=f"asis_hist_{grupo_asistencia}_{idx}", 
+                            label_visibility="collapsed"
+                        )
                 
-                if st.form_submit_button("💾 Guardar Asistencia del Día"):
-                    st.success(f"¡Asistencia y justificantes guardados correctamente para el grupo {grupo_asistencia}!")
+                if st.form_submit_button("💾 Guardar Récord de Asistencia y Justificantes"):
+                    # Guardar en el estado de sesión y persistir en JSON
+                    for idx, alu in enumerate(alumnos_grupo):
+                        estatus_elegido = st.session_state[f"asis_hist_{grupo_asistencia}_{idx}"]
+                        if alu['nombre'] not in st.session_state.asistencias_alumnos:
+                            st.session_state.asistencias_alumnos[alu['nombre']] = {}
+                        st.session_state.asistencias_alumnos[alu['nombre']][fecha_str] = estatus_elegido
+                    
+                    guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos)
+                    st.success(f"¡Récord de asistencia actualizado correctamente para el {fecha_str}!")
             st.markdown('</div>', unsafe_allow_html=True)
 
         with doc_tab4:

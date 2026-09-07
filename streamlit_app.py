@@ -62,13 +62,28 @@ st.markdown("""
         color: #0f172a !important;
     }
     
-    input, div[data-baseweb="select"] > div, div[data-baseweb="base-input"], div[data-baseweb="popover"] div {
+    input, div[data-baseweb="select"] > div, div[data-baseweb="base-input"] {
         background-color: #ffffff !important;
         color: #0f172a !important;
     }
     
-    div[data-baseweb="select"] span, div[data-baseweb="popover"] span, ul[data-baseweb="menu"] li div {
+    div[data-baseweb="select"] span {
         color: #0f172a !important;
+    }
+    
+    /* Forzar menús desplegables flotantes (popovers/listboxes) en móvil */
+    div[data-baseweb="popover"], div[data-baseweb="menu"], ul[data-baseweb="menu"], [role="listbox"], [role="option"] {
+        background-color: #ffffff !important;
+        color: #0f172a !important;
+    }
+    
+    [role="option"] div, [role="option"] span, li[role="option"] {
+        color: #0f172a !important;
+        background-color: #ffffff !important;
+    }
+    
+    [role="option"]:hover {
+        background-color: #e2e8f0 !important;
     }
     
     .card-modern {

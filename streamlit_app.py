@@ -51,12 +51,18 @@ if 'entregas_alumnos' not in st.session_state:
 if 'asistencias_alumnos' not in st.session_state:
     st.session_state.asistencias_alumnos = stored_data.get("asistencias", {})
 
-# --- ESTILOS VISUALES ADAPTADOS A MÓVIL ---
+# --- ESTILOS VISUALES ROBUSTOS PARA MÓVIL ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    .stApp { background-color: #f8f9fa; }
+    .stApp { background-color: #f8f9fa; color: #1e293b; }
+    
+    /* Forzar visibilidad y color oscuro en textos dentro de la app móvil */
+    p, span, label, div {
+        color: #1e293b;
+    }
+    
     .card-modern {
         background-color: #ffffff;
         padding: 20px;
@@ -64,6 +70,7 @@ st.markdown("""
         box-shadow: 0 10px 25px rgba(0,0,0,0.04);
         border: 1px solid #eaeaea;
         margin-bottom: 20px;
+        color: #1e293b;
     }
     .eval-card {
         background-color: #f1f5f9;
@@ -74,6 +81,7 @@ st.markdown("""
         margin-bottom: 10px;
         word-wrap: break-word;
         overflow-wrap: break-word;
+        color: #1e293b;
     }
     .stButton>button {
         border-radius: 10px;
@@ -90,8 +98,8 @@ st.markdown("""
         color: white;
         box-shadow: 0 4px 12px rgba(29, 53, 87, 0.2);
     }
-    h1, h2, h3 {
-        color: #1d3557;
+    h1, h2, h3, h4 {
+        color: #1d3557 !important;
         font-family: 'Helvetica Neue', sans-serif;
     }
     </style>
@@ -504,14 +512,11 @@ elif modo == "Panel Docente (Profesor)":
             if not client:
                 st.warning("⚠️ La API de Gemini no está configurada. Añade tu `GEMINI_API_KEY` en los secrets.")
             else:
-                 # --- SELECTOR DE GRUPO PARA FILTRAR ORDENADAMENTE ---
                  grupo_rev_sel = st.selectbox("1. Selecciona Grupo a Revisar:", ["1° A Geografía", "1° B Geografía", "1° C Geografía", "1° D Geografía"])
                  
-                 # Alumnos de ese grupo que tienen entregas registradas
                  alumnos_grupo = [a for a in st.session_state.alumnos if a['grupo'] == grupo_rev_sel]
                  alumnos_con_entregas_grupo = [a['nombre'] for a in alumnos_grupo if a['nombre'] in st.session_state.entregas_alumnos and st.session_state.entregas_alumnos[a['nombre']]]
                  
-                 # --- MOSTRAR TABLA DE RESUMEN DE ENTREGAS DEL GRUPO ---
                  st.markdown("#### 📊 Estatus de Entregas del Grupo")
                  tabla_resumen_data = []
                  for alu in alumnos_grupo:

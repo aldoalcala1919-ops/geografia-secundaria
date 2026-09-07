@@ -19,16 +19,11 @@ st.set_page_config(
 gemini_key = st.secrets.get("GEMINI_API_KEY", "")
 client = genai.Client(api_key=gemini_key) if gemini_key else None
 
-# --- PERSISTENCIA ROBUSTA EN JSON ---
+# --- PERSISTENCIA ROBUSTA EN JSON (REINICIADO EN CEROS) ---
 DB_FILE = "school_database.json"
 
 def cargar_datos_persistidos():
-    if os.path.exists(DB_FILE):
-        try:
-            with open(DB_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
+    # Iniciamos completamente limpio de pruebas anteriores
     return {"actividades": [], "entregas": {}, "asistencias": {}, "incidencias": {}}
 
 def guardar_datos_persistidos(actividades, entregas, asistencias=None, incidencias=None):
@@ -732,7 +727,6 @@ elif modo == "Panel Docente (Profesor)":
                 st.dataframe(pd.DataFrame(data_tabla_asistencia), use_container_width=True, hide_index=True)
             
             else:
-                # Determinar categoría según la selección
                 categoria_map = {
                     "Sábana de Calificaciones: Tareas": "Tarea",
                     "Sábana de Calificaciones: Redacciones": "Redaccion",

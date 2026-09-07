@@ -58,18 +58,16 @@ st.markdown("""
     footer {visibility: hidden;}
     .stApp { background-color: #f8f9fa; }
     
-    /* Forzar color de texto principal oscuro y legible en todo el cuerpo */
     p, span, label, div, li {
         color: #0f172a !important;
     }
     
-    /* Forzar contenedores y inputs de texto/select a fondo blanco y letras oscuras */
-    input, div[data-baseweb="select"] > div, div[data-baseweb="base-input"] {
+    input, div[data-baseweb="select"] > div, div[data-baseweb="base-input"], div[data-baseweb="popover"] div {
         background-color: #ffffff !important;
         color: #0f172a !important;
     }
     
-    div[data-baseweb="select"] span {
+    div[data-baseweb="select"] span, div[data-baseweb="popover"] span, ul[data-baseweb="menu"] li div {
         color: #0f172a !important;
     }
     

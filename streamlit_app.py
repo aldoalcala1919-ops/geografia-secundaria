@@ -51,29 +51,30 @@ if 'entregas_alumnos' not in st.session_state:
 if 'asistencias_alumnos' not in st.session_state:
     st.session_state.asistencias_alumnos = stored_data.get("asistencias", {})
 
-# --- ESTILOS VISUALES ROBUSTOS PARA MÓVIL ---
+# --- ESTILOS VISUALES CON CONTRASTE ALTO PARA MÓVIL ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    .stApp { background-color: #f8f9fa; color: #1e293b; }
+    .stApp { background-color: #f8f9fa; }
     
-    /* Forzar visibilidad y color oscuro en textos dentro de la app móvil */
-    p, span, label, div {
-        color: #1e293b;
+    /* Forzar color de texto principal oscuro y legible en todo el cuerpo */
+    p, span, label, div, li {
+        color: #0f172a !important;
     }
     
     .card-modern {
-        background-color: #ffffff;
+        background-color: #ffffff !important;
         padding: 20px;
         border-radius: 16px;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.04);
-        border: 1px solid #eaeaea;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.06);
+        border: 1px solid #cbd5e1;
         margin-bottom: 20px;
-        color: #1e293b;
+        color: #0f172a !important;
     }
+    
     .eval-card {
-        background-color: #f1f5f9;
+        background-color: #f1f5f9 !important;
         padding: 15px;
         border-radius: 12px;
         border-left: 5px solid #1d3557;
@@ -81,23 +82,29 @@ st.markdown("""
         margin-bottom: 10px;
         word-wrap: break-word;
         overflow-wrap: break-word;
-        color: #1e293b;
+        color: #0f172a !important;
+        border-top: 1px solid #e2e8f0;
+        border-right: 1px solid #e2e8f0;
+        border-bottom: 1px solid #e2e8f0;
     }
+    
     .stButton>button {
         border-radius: 10px;
         font-weight: 600;
         background-color: #1d3557;
-        color: white;
+        color: white !important;
         border: none;
         padding: 0.5rem 1rem;
         transition: all 0.3s ease;
         width: 100%;
     }
+    
     .stButton>button:hover {
         background-color: #457b9d;
-        color: white;
+        color: white !important;
         box-shadow: 0 4px 12px rgba(29, 53, 87, 0.2);
     }
+    
     h1, h2, h3, h4 {
         color: #1d3557 !important;
         font-family: 'Helvetica Neue', sans-serif;
@@ -352,10 +359,10 @@ if modo == "Portal Familiar / Alumno":
         st.markdown("#### Colección de Insignias")
         st.markdown("""
         <div class="card-modern">
-            <p>🗺️ <b>Explorador Inicial:</b> <span style="color: green;">Activo en plataforma</span></p>
+            <p>🗺️ <b>Explorador Inicial:</b> <span style="color: #15803d; font-weight: bold;">Activo en plataforma</span></p>
             <p>🔥 <b>Racha de Puntualidad:</b> <span>En progreso</span></p>
-            <p>✍️ <b>Pluma Escolar:</b> <span style="color: gray;">Sin asignar</span></p>
-            <p>🔒 <b>Nivel 2:</b> <span style="color: gray;">Bloqueado</span></p>
+            <p>✍️ <b>Pluma Escolar:</b> <span style="color: #64748b;">Sin asignar</span></p>
+            <p>🔒 <b>Nivel 2:</b> <span style="color: #64748b;">Bloqueado</span></p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -386,7 +393,7 @@ if modo == "Portal Familiar / Alumno":
                     
                     st.markdown(f"""
                     <div class="eval-card">
-                        <p><b>Calificación:</b> <span style="font-size: 1.1em; color: #1d3557;">{calif_val} / 10</span></p>
+                        <p style="margin-bottom: 5px;"><b>Calificación:</b> <span style="font-size: 1.1em; color: #1d3557; font-weight: bold;">{calif_val} / 10</span></p>
                         <hr style="margin: 8px 0; border-color: #cbd5e1;">
                         <p style="margin-bottom: 0;"><b>Retroalimentación:</b><br>{rev_val}</p>
                     </div>
@@ -435,7 +442,7 @@ if modo == "Portal Familiar / Alumno":
                 <p>⚠️ <b>Retardos:</b> Registrados</p>
                 <p>📝 <b>Justificantes:</b> Válidos (Aplicados por docente)</p>
                 <p>❌ <b>Faltas:</b> Registradas</p>
-                <hr>
+                <hr style="border-color: #e2e8f0;">
                 <p style="color: #1d3557;"><b>Estatus:</b> Tu récord se actualiza conforme el profesor registra asistencia o justificantes históricos.</p>
             </div>
             """, unsafe_allow_html=True)

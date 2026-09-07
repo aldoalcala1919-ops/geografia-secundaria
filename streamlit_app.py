@@ -63,6 +63,16 @@ st.markdown("""
         color: #0f172a !important;
     }
     
+    /* Forzar contenedores y inputs de texto/select a fondo blanco y letras oscuras */
+    input, div[data-baseweb="select"] > div, div[data-baseweb="base-input"] {
+        background-color: #ffffff !important;
+        color: #0f172a !important;
+    }
+    
+    div[data-baseweb="select"] span {
+        color: #0f172a !important;
+    }
+    
     .card-modern {
         background-color: #ffffff !important;
         padding: 20px;

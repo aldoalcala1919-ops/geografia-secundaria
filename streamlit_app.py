@@ -19,17 +19,29 @@ st.set_page_config(
 gemini_key = st.secrets.get("GEMINI_API_KEY", "")
 client = genai.Client(api_key=gemini_key) if gemini_key else None
 
-# --- PERSISTENCIA ROBUSTA EN JSON (INICIANDO EN CERO) ---
+# --- PERSISTENCIA ROBUSTA EN JSON ---
 DB_FILE = "school_database.json"
 
 def cargar_datos_persistidos():
-    # Inicializamos completamente limpio de pruebas anteriores
-    return {"actividades": [], "entregas": {}, "asistencias": {}}
+    if os.path.exists(DB_FILE):
+        try:
+            with open(DB_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {"actividades": [], "entregas": {}, "asistencias": {}, "incidencias": {}}
 
-def guardar_datos_persistidos(actividades, entregas, asistencias=None):
+def guardar_datos_persistidos(actividades, entregas, asistencias=None, incidencias=None):
     if asistencias is None:
         asistencias = {}
-    data = {"actividades": actividades, "entregas": entregas, "asistencias": asistencias}
+    if incidencias is None:
+        incidencias = {}
+    data = {
+        "actividades": actividades, 
+        "entregas": entregas, 
+        "asistencias": asistencias,
+        "incidencias": incidencias
+    }
     try:
         with open(DB_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
@@ -45,6 +57,9 @@ if 'entregas_alumnos' not in st.session_state:
 
 if 'asistencias_alumnos' not in st.session_state:
     st.session_state.asistencias_alumnos = stored_data.get("asistencias", {})
+
+if 'incidencias_alumnos' not in st.session_state:
+    st.session_state.incidencias_alumnos = stored_data.get("incidencias", {})
 
 # --- ESTILOS VISUALES ORIGINALES ---
 st.markdown("""
@@ -325,6 +340,7 @@ if modo == "Portal Familiar / Alumno":
         st.session_state.actividades = current_data.get("actividades", [])
         st.session_state.entregas_alumnos = current_data.get("entregas", {})
         st.session_state.asistencias_alumnos = current_data.get("asistencias", {})
+        st.session_state.incidencias_alumnos = current_data.get("incidencias", {})
 
         if nombre_actual not in st.session_state.entregas_alumnos:
             st.session_state.entregas_alumnos[nombre_actual] = {}
@@ -352,7 +368,7 @@ if modo == "Portal Familiar / Alumno":
 
         st.markdown("---")
 
-        tab_tareas, tab_redacciones, tab_asistencia, tab_proyectos = st.tabs(["📚 Tareas", "✍️ Redacciones", "📅 Asistencia", "🧪 Proyectos"])
+        tab_tareas, tab_redacciones, tab_asistencia, tab_proyectos, tab_incidencias = st.tabs(["📚 Tareas", "✍️ Redacciones", "📅 Asistencia", "🧪 Proyectos", "⚠️ Incidencias"])
 
         def mostrar_seccion_actividades(tipo_filtro):
             acts = [a for a in st.session_state.actividades if a['tipo'] == tipo_filtro]
@@ -407,7 +423,7 @@ if modo == "Portal Familiar / Alumno":
                                 "revision": "Entregado correctamente, pendiente de revisión.",
                                 "calificacion": None
                             }
-                            guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos)
+                            guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos, st.session_state.incidencias_alumnos)
                             st.success(f"¡Actividad '{t['titulo']}' enviada con éxito!")
                             st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -434,6 +450,21 @@ if modo == "Portal Familiar / Alumno":
         with tab_proyectos:
             mostrar_seccion_actividades("Proyecto")
 
+        with tab_incidencias:
+            st.markdown("### ⚠️ Registro de Incidencias y Avisos al Padre de Familia")
+            lista_incidencias_alu = st.session_state.incidencias_alumnos.get(nombre_actual, [])
+            if not lista_incidencias_alu:
+                st.info("No hay incidencias o reportes registrados por el momento. ¡Excelente trabajo!")
+            else:
+                for inc in reversed(lista_incidencias_alu):
+                    st.markdown(f"""
+                    <div class="eval-card">
+                        <p style="margin-bottom: 5px;">📅 <b>Fecha:</b> {inc['fecha']} | 🏷️ <b>Categoría:</b> <b>{inc['tipo']}</b></p>
+                        <hr style="margin: 6px 0; border-color: #cbd5e1;">
+                        <p style="margin-bottom: 0;">{inc['descripcion']}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
 
 # ==========================================
 # 2. PANEL DOCENTE (PROFESOR)
@@ -453,8 +484,9 @@ elif modo == "Panel Docente (Profesor)":
         st.session_state.actividades = current_data.get("actividades", [])
         st.session_state.entregas_alumnos = current_data.get("entregas", {})
         st.session_state.asistencias_alumnos = current_data.get("asistencias", {})
+        st.session_state.incidencias_alumnos = current_data.get("incidencias", {})
 
-        doc_tab1, doc_tab2, doc_tab3, doc_tab4 = st.tabs(["📝 Actividades", "🤖 Revisión IA", "📅 Asistencia / Justificantes", "📊 Reportes"])
+        doc_tab1, doc_tab2, doc_tab3, doc_tab4, doc_tab5 = st.tabs(["📝 Actividades", "🤖 Revisión IA", "📅 Asistencia", "⚠️ Incidencias", "📊 Reportes"])
 
         with doc_tab1:
             st.markdown('<div class="card-modern">', unsafe_allow_html=True)
@@ -469,7 +501,7 @@ elif modo == "Panel Docente (Profesor)":
                     nuevo_id = f"act_{len(st.session_state.actividades) + 1}"
                     st.session_state.actividades.append({"id": nuevo_id, "titulo": nuevo_titulo, "tipo": nuevo_tipo, "activa": True, "grupo": grupo_destino})
                     
-                    guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos)
+                    guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos, st.session_state.incidencias_alumnos)
                     st.success(f"¡Actividad '{nuevo_titulo}' creada y sincronizada con éxito!")
                     st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
@@ -486,11 +518,11 @@ elif modo == "Panel Docente (Profesor)":
                     nuevo_estado = st.toggle("Activa", value=act['activa'], key=f"toggle_{act['id']}_{idx}")
                     if nuevo_estado != act['activa']:
                         st.session_state.actividades[idx]['activa'] = nuevo_estado
-                        guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos)
+                        guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos, st.session_state.incidencias_alumnos)
                 with col_c:
                     if st.button("🗑️", key=f"del_{act['id']}_{idx}"):
                         st.session_state.actividades.pop(idx)
-                        guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos)
+                        guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos, st.session_state.incidencias_alumnos)
                         st.success("Actividad eliminada.")
                         st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -569,7 +601,7 @@ elif modo == "Panel Docente (Profesor)":
                                  
                                  st.session_state.entregas_alumnos[alumno_sel_rev][act_sel_id]['revision'] = texto_respuesta
                                  st.session_state.entregas_alumnos[alumno_sel_rev][act_sel_id]['calificacion'] = calif_extraida
-                                 guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos)
+                                 guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos, st.session_state.incidencias_alumnos)
                              except Exception as e:
                                  st.error(f"Error al procesar con IA: {e}")
                  else:
@@ -616,20 +648,66 @@ elif modo == "Panel Docente (Profesor)":
                             st.session_state.asistencias_alumnos[alu['nombre']] = {}
                         st.session_state.asistencias_alumnos[alu['nombre']][fecha_str] = estatus_elegido
                     
-                    guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos)
+                    guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos, st.session_state.incidencias_alumnos)
                     st.success(f"¡Récord de asistencia actualizado correctamente para el {fecha_str}!")
             st.markdown('</div>', unsafe_allow_html=True)
 
         with doc_tab4:
             st.markdown('<div class="card-modern">', unsafe_allow_html=True)
-            st.subheader("Sábana General de Calificaciones y Avances")
-            df_resumen = pd.DataFrame([
-                {"Grupo": "1° A", "Alumnos Inscritos": 45, "Promedio General": 0.0},
-                {"Grupo": "1° B", "Alumnos Inscritos": 46, "Promedio General": 0.0},
-                {"Grupo": "1° C", "Alumnos Inscritos": 44, "Promedio General": 0.0},
-                {"Grupo": "1° D", "Alumnos Inscritos": 43, "Promedio General": 0.0}
-            ])
-            st.dataframe(df_resumen, use_container_width=True)
+            st.subheader("⚠️ Registrar Incidencia o Aviso a Padre de Familia")
+            st.markdown("Asigna un reporte (ej. *No trajo libro, Falta injustificada, Comportamiento*) visible directamente en el portal del alumno.")
+            
+            grupo_inc = st.selectbox("Selecciona grupo para incidencia:", ["1° A Geografía", "1° B Geografía", "1° C Geografía", "1° D Geografía"], key="sel_grupo_inc")
+            alumnos_inc_grupo = [a['nombre'] for a in st.session_state.alumnos if a['grupo'] == grupo_inc]
+            
+            with st.form("form_crear_incidencia"):
+                alumno_seleccionado = st.selectbox("Selecciona Alumno:", alumnos_inc_grupo)
+                tipo_incidencia = st.selectbox("Tipo de Incidencia:", ["📚 No trajo libro / Material", "❌ Falta injustificada", "⚠️ Retardo o disciplina", "📝 Observación general"])
+                fecha_inc = st.date_input("Fecha del reporte:", value=date.today())
+                descripcion_inc = st.text_area("Descripción detallada para el padre de familia:")
+                
+                btn_guardar_inc = st.form_submit_button("🚀 Publicar Incidencia en Portal del Alumno")
+                
+                if btn_guardar_inc and descripcion_inc:
+                    if alumno_seleccionado not in st.session_state.incidencias_alumnos:
+                        st.session_state.incidencias_alumnos[alumno_seleccionado] = []
+                    
+                    st.session_state.incidencias_alumnos[alumno_seleccionado].append({
+                        "fecha": fecha_inc.strftime("%Y-%m-%d"),
+                        "tipo": tipo_incidencia,
+                        "descripcion": descripcion_inc
+                    })
+                    
+                    guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos, st.session_state.incidencias_alumnos)
+                    st.success(f"¡Incidencia registrada y sincronizada para {alumno_seleccionado}!")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        with doc_tab5:
+            st.markdown('<div class="card-modern">', unsafe_allow_html=True)
+            st.subheader("📊 Reportes y Desglose de Asistencias por Grupo")
+            grupo_reporte = st.selectbox("Selecciona Grupo a Consultar:", ["1° A Geografía", "1° B Geografía", "1° C Geografía", "1° D Geografía"], key="sel_rep_grupo")
+            
+            alumnos_rep = [a for a in st.session_state.alumnos if a['grupo'] == grupo_reporte]
+            
+            data_tabla_asistencia = []
+            for alu in alumnos_rep:
+                reg_alu = st.session_state.asistencias_alumnos.get(alu['nombre'], {})
+                asis = list(reg_alu.values()).count("Asistencia")
+                ret = list(reg_alu.values()).count("Retardo")
+                jus = list(reg_alu.values()).count("Justificante")
+                fal = list(reg_alu.values()).count("Falta")
+                
+                data_tabla_asistencia.append({
+                    "Alumno": alu['nombre'],
+                    "Asistencias": asis,
+                    "Retardos": ret,
+                    "Justificantes": jus,
+                    "Faltas": fal,
+                    "Total Registros": len(reg_alu)
+                })
+            
+            df_asistencias = pd.DataFrame(data_tabla_asistencia)
+            st.dataframe(df_asistencias, use_container_width=True, hide_index=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
     elif clave_profe != "":

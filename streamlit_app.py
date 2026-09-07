@@ -51,27 +51,37 @@ if 'entregas_alumnos' not in st.session_state:
 if 'asistencias_alumnos' not in st.session_state:
     st.session_state.asistencias_alumnos = stored_data.get("asistencias", {})
 
-# --- ESTILOS VISUALES CON CONTRASTE ALTO PARA MÓVIL ---
+# --- ESTILOS VISUALES GLOBALES CON CONTRASTE ALTO PARA MÓVIL ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     .stApp { background-color: #f8f9fa; }
     
-    p, span, label, div, li {
+    p, span, label, div, li, small {
         color: #0f172a !important;
     }
     
-    input, div[data-baseweb="select"] > div, div[data-baseweb="base-input"] {
+    /* Forzar inputs, selectores y zonas de carga de archivos (file uploader) a fondo blanco y texto oscuro */
+    input, 
+    div[data-baseweb="select"] > div, 
+    div[data-baseweb="base-input"], 
+    div[data-baseweb="file-uploader"],
+    [data-testid="stFileUploader"] section,
+    [data-testid="stFileUploader"] div {
         background-color: #ffffff !important;
         color: #0f172a !important;
     }
     
-    div[data-baseweb="select"] span {
+    div[data-baseweb="select"] span, 
+    div[data-baseweb="popover"] span, 
+    ul[data-baseweb="menu"] li div,
+    [data-testid="stFileUploader"] span,
+    [data-testid="stFileUploader"] small,
+    [data-testid="stFileUploader"] p {
         color: #0f172a !important;
     }
     
-    /* Forzar menús desplegables flotantes (popovers/listboxes) en móvil */
     div[data-baseweb="popover"], div[data-baseweb="menu"], ul[data-baseweb="menu"], [role="listbox"], [role="option"] {
         background-color: #ffffff !important;
         color: #0f172a !important;

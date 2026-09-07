@@ -540,7 +540,7 @@ elif modo == "Panel Docente (Profesor)":
                  alumnos_grupo = [a for a in st.session_state.alumnos if a['grupo'] == grupo_rev_sel]
                  alumnos_con_entregas_grupo = [a['nombre'] for a in alumnos_grupo if a['nombre'] in st.session_state.entregas_alumnos and st.session_state.entregas_alumnos[a['nombre']]]
                  
-                 st.markdown("#### 📊 Estatus de Entregas del Grupo")
+                 st.markdown("#### 📊 Estatus General de Entregas del Grupo")
                  tabla_resumen_data = []
                  for alu in alumnos_grupo:
                      entregas_alu = st.session_state.entregas_alumnos.get(alu['nombre'], {})
@@ -703,30 +703,67 @@ elif modo == "Panel Docente (Profesor)":
 
         with doc_tab5:
             st.markdown('<div class="card-modern">', unsafe_allow_html=True)
-            st.subheader("📊 Reportes y Desglose de Asistencias por Grupo")
-            grupo_reporte = st.selectbox("Selecciona Grupo a Consultar:", ["1° A Geografía", "1° B Geografía", "1° C Geografía", "1° D Geografía"], key="sel_rep_grupo")
+            st.subheader("📊 Informes Globales y Sábanas de Calificaciones")
+            
+            tipo_reporte_doc = st.selectbox("Selecciona el tipo de informe:", ["Informe Global por Grupo (Asistencias)", "Sábana de Calificaciones: Tareas", "Sábana de Calificaciones: Redacciones", "Sábana de Calificaciones: Proyectos"])
+            grupo_reporte = st.selectbox("Selecciona Grupo:", ["1° A Geografía", "1° B Geografía", "1° C Geografía", "1° D Geografía"], key="sel_rep_grupo")
             
             alumnos_rep = [a for a in st.session_state.alumnos if a['grupo'] == grupo_reporte]
+            st.markdown("---")
             
-            data_tabla_asistencia = []
-            for alu in alumnos_rep:
-                reg_alu = st.session_state.asistencias_alumnos.get(alu['nombre'], {})
-                asis = list(reg_alu.values()).count("Asistencia")
-                ret = list(reg_alu.values()).count("Retardo")
-                jus = list(reg_alu.values()).count("Justificante")
-                fal = list(reg_alu.values()).count("Falta")
+            if tipo_reporte_doc == "Informe Global por Grupo (Asistencias)":
+                st.markdown(f"#### 📋 Resumen de Asistencia - {grupo_reporte}")
+                data_tabla_asistencia = []
+                for alu in alumnos_rep:
+                    reg_alu = st.session_state.asistencias_alumnos.get(alu['nombre'], {})
+                    asis = list(reg_alu.values()).count("Asistencia")
+                    ret = list(reg_alu.values()).count("Retardo")
+                    jus = list(reg_alu.values()).count("Justificante")
+                    fal = list(reg_alu.values()).count("Falta")
+                    
+                    data_tabla_asistencia.append({
+                        "Alumno": alu['nombre'],
+                        "Asistencias": asis,
+                        "Retardos": ret,
+                        "Justificantes": jus,
+                        "Faltas": fal,
+                        "Total Registros": len(reg_alu)
+                    })
+                st.dataframe(pd.DataFrame(data_tabla_asistencia), use_container_width=True, hide_index=True)
+            
+            else:
+                # Determinar categoría según la selección
+                categoria_map = {
+                    "Sábana de Calificaciones: Tareas": "Tarea",
+                    "Sábana de Calificaciones: Redacciones": "Redaccion",
+                    "Sábana de Calificaciones: Proyectos": "Proyecto"
+                }
+                cat_seleccionada = categoria_map[tipo_reporte_doc]
                 
-                data_tabla_asistencia.append({
-                    "Alumno": alu['nombre'],
-                    "Asistencias": asis,
-                    "Retardos": ret,
-                    "Justificantes": jus,
-                    "Faltas": fal,
-                    "Total Registros": len(reg_alu)
-                })
-            
-            df_asistencias = pd.DataFrame(data_tabla_asistencia)
-            st.dataframe(df_asistencias, use_container_width=True, hide_index=True)
+                acts_categoria = [a for a in st.session_state.actividades if a['tipo'] == cat_seleccionada and (a['grupo'] == grupo_reporte or a['grupo'] == "Todos")]
+                
+                if not acts_categoria:
+                    st.info(f"No hay {cat_seleccionada.lower()}s registradas para este grupo.")
+                else:
+                    st.markdown(f"#### 📝 Calificaciones de {cat_seleccionada}s - {grupo_reporte}")
+                    tabla_califs = []
+                    for alu in alumnos_rep:
+                        fila = {"Alumno": alu['nombre']}
+                        califs_alu_nums = []
+                        for act in acts_categoria:
+                            ent_info = st.session_state.entregas_alumnos.get(alu['nombre'], {}).get(act['id'], {})
+                            cal_val = ent_info.get('calificacion')
+                            if cal_val is not None:
+                                fila[act['titulo']] = f"{cal_val} / 10"
+                                califs_alu_nums.append(cal_val)
+                            else:
+                                fila[act['titulo']] = "Sin calificar / Sin entrega"
+                        
+                        promedio_alu = round(sum(califs_alu_nums) / len(califs_alu_nums), 1) if califs_alu_nums else 0.0
+                        fila["Promedio Parcial"] = f"{promedio_alu} / 10"
+                        tabla_califs.append(fila)
+                    
+                    st.dataframe(pd.DataFrame(tabla_califs), use_container_width=True, hide_index=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
     elif clave_profe != "":

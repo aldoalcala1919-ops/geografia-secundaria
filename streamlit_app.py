@@ -654,32 +654,51 @@ elif modo == "Panel Docente (Profesor)":
 
         with doc_tab4:
             st.markdown('<div class="card-modern">', unsafe_allow_html=True)
-            st.subheader("⚠️ Registrar Incidencia o Aviso a Padre de Familia")
-            st.markdown("Asigna un reporte (ej. *No trajo libro, Falta injustificada, Comportamiento*) visible directamente en el portal del alumno.")
+            st.subheader("⚠️ Gestión de Incidencias y Avisos")
             
-            grupo_inc = st.selectbox("Selecciona grupo para incidencia:", ["1° A Geografía", "1° B Geografía", "1° C Geografía", "1° D Geografía"], key="sel_grupo_inc")
+            sub_opcion = st.radio("Acción:", ["Registrar Nueva Incidencia", "Consultar Historial por Alumno"], horizontal=True)
+            st.markdown("---")
+            
+            grupo_inc = st.selectbox("Selecciona grupo:", ["1° A Geografía", "1° B Geografía", "1° C Geografía", "1° D Geografía"], key="sel_grupo_inc")
             alumnos_inc_grupo = [a['nombre'] for a in st.session_state.alumnos if a['grupo'] == grupo_inc]
             
-            with st.form("form_crear_incidencia"):
-                alumno_seleccionado = st.selectbox("Selecciona Alumno:", alumnos_inc_grupo)
-                tipo_incidencia = st.selectbox("Tipo de Incidencia:", ["📚 No trajo libro / Material", "❌ Falta injustificada", "⚠️ Retardo o disciplina", "📝 Observación general"])
-                fecha_inc = st.date_input("Fecha del reporte:", value=date.today())
-                descripcion_inc = st.text_area("Descripción detallada para el padre de familia:")
-                
-                btn_guardar_inc = st.form_submit_button("🚀 Publicar Incidencia en Portal del Alumno")
-                
-                if btn_guardar_inc and descripcion_inc:
-                    if alumno_seleccionado not in st.session_state.incidencias_alumnos:
-                        st.session_state.incidencias_alumnos[alumno_seleccionado] = []
+            if sub_opcion == "Registrar Nueva Incidencia":
+                with st.form("form_crear_incidencia"):
+                    alumno_seleccionado = st.selectbox("Selecciona Alumno:", alumnos_inc_grupo)
+                    tipo_incidencia = st.selectbox("Tipo de Incidencia:", ["📚 No trajo libro / Material", "❌ Falta injustificada", "⚠️ Retardo o disciplina", "📝 Observación general"])
+                    fecha_inc = st.date_input("Fecha del reporte:", value=date.today())
+                    descripcion_inc = st.text_area("Descripción detallada para el padre de familia:")
                     
-                    st.session_state.incidencias_alumnos[alumno_seleccionado].append({
-                        "fecha": fecha_inc.strftime("%Y-%m-%d"),
-                        "tipo": tipo_incidencia,
-                        "descripcion": descripcion_inc
-                    })
+                    btn_guardar_inc = st.form_submit_button("🚀 Publicar Incidencia en Portal del Alumno")
                     
-                    guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos, st.session_state.incidencias_alumnos)
-                    st.success(f"¡Incidencia registrada y sincronizada para {alumno_seleccionado}!")
+                    if btn_guardar_inc and descripcion_inc:
+                        if alumno_seleccionado not in st.session_state.incidencias_alumnos:
+                            st.session_state.incidencias_alumnos[alumno_seleccionado] = []
+                        
+                        st.session_state.incidencias_alumnos[alumno_seleccionado].append({
+                            "fecha": fecha_inc.strftime("%Y-%m-%d"),
+                            "tipo": tipo_incidencia,
+                            "descripcion": descripcion_inc
+                        })
+                        
+                        guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos, st.session_state.incidencias_alumnos)
+                        st.success(f"¡Incidencia registrada y sincronizada para {alumno_seleccionado}!")
+            else:
+                alumno_cons = st.selectbox("Selecciona Alumno a Consultar:", alumnos_inc_grupo, key="sel_cons_alu_inc")
+                historial_alu = st.session_state.incidencias_alumnos.get(alumno_cons, [])
+                
+                st.markdown(f"#### Historial de: {alumno_cons}")
+                if not historial_alu:
+                    st.info("Este alumno no cuenta con incidencias registradas.")
+                else:
+                    for inc in reversed(historial_alu):
+                        st.markdown(f"""
+                        <div class="eval-card">
+                            <p style="margin-bottom: 5px;">📅 <b>Fecha:</b> {inc['fecha']} | 🏷️ <b>Categoría:</b> <b>{inc['tipo']}</b></p>
+                            <hr style="margin: 6px 0; border-color: #cbd5e1;">
+                            <p style="margin-bottom: 0;">{inc['descripcion']}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
         with doc_tab5:

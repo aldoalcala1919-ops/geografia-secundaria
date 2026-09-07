@@ -19,16 +19,11 @@ st.set_page_config(
 gemini_key = st.secrets.get("GEMINI_API_KEY", "")
 client = genai.Client(api_key=gemini_key) if gemini_key else None
 
-# --- PERSISTENCIA ROBUSTA EN JSON ---
+# --- PERSISTENCIA ROBUSTA EN JSON (INICIANDO EN CERO) ---
 DB_FILE = "school_database.json"
 
 def cargar_datos_persistidos():
-    if os.path.exists(DB_FILE):
-        try:
-            with open(DB_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
+    # Inicializamos completamente limpio de pruebas anteriores
     return {"actividades": [], "entregas": {}, "asistencias": {}}
 
 def guardar_datos_persistidos(actividades, entregas, asistencias=None):
@@ -51,63 +46,23 @@ if 'entregas_alumnos' not in st.session_state:
 if 'asistencias_alumnos' not in st.session_state:
     st.session_state.asistencias_alumnos = stored_data.get("asistencias", {})
 
-# --- ESTILOS VISUALES GLOBALES CON CONTRASTE ALTO PARA MÓVIL ---
+# --- ESTILOS VISUALES ORIGINALES ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    .stApp { background-color: #f8f9fa; }
-    
-    p, span, label, div, li, small {
-        color: #0f172a !important;
-    }
-    
-    /* Forzar inputs, selectores y zonas de carga de archivos (file uploader) a fondo blanco y texto oscuro */
-    input, 
-    div[data-baseweb="select"] > div, 
-    div[data-baseweb="base-input"], 
-    div[data-baseweb="file-uploader"],
-    [data-testid="stFileUploader"] section,
-    [data-testid="stFileUploader"] div {
-        background-color: #ffffff !important;
-        color: #0f172a !important;
-    }
-    
-    div[data-baseweb="select"] span, 
-    div[data-baseweb="popover"] span, 
-    ul[data-baseweb="menu"] li div,
-    [data-testid="stFileUploader"] span,
-    [data-testid="stFileUploader"] small,
-    [data-testid="stFileUploader"] p {
-        color: #0f172a !important;
-    }
-    
-    div[data-baseweb="popover"], div[data-baseweb="menu"], ul[data-baseweb="menu"], [role="listbox"], [role="option"] {
-        background-color: #ffffff !important;
-        color: #0f172a !important;
-    }
-    
-    [role="option"] div, [role="option"] span, li[role="option"] {
-        color: #0f172a !important;
-        background-color: #ffffff !important;
-    }
-    
-    [role="option"]:hover {
-        background-color: #e2e8f0 !important;
-    }
     
     .card-modern {
-        background-color: #ffffff !important;
+        background-color: #ffffff;
         padding: 20px;
         border-radius: 16px;
         box-shadow: 0 10px 25px rgba(0,0,0,0.06);
         border: 1px solid #cbd5e1;
         margin-bottom: 20px;
-        color: #0f172a !important;
     }
     
     .eval-card {
-        background-color: #f1f5f9 !important;
+        background-color: #f1f5f9;
         padding: 15px;
         border-radius: 12px;
         border-left: 5px solid #1d3557;
@@ -115,17 +70,13 @@ st.markdown("""
         margin-bottom: 10px;
         word-wrap: break-word;
         overflow-wrap: break-word;
-        color: #0f172a !important;
-        border-top: 1px solid #e2e8f0;
-        border-right: 1px solid #e2e8f0;
-        border-bottom: 1px solid #e2e8f0;
     }
     
     .stButton>button {
         border-radius: 10px;
         font-weight: 600;
         background-color: #1d3557;
-        color: white !important;
+        color: white;
         border: none;
         padding: 0.5rem 1rem;
         transition: all 0.3s ease;
@@ -134,12 +85,12 @@ st.markdown("""
     
     .stButton>button:hover {
         background-color: #457b9d;
-        color: white !important;
+        color: white;
         box-shadow: 0 4px 12px rgba(29, 53, 87, 0.2);
     }
     
     h1, h2, h3, h4 {
-        color: #1d3557 !important;
+        color: #1d3557;
         font-family: 'Helvetica Neue', sans-serif;
     }
     </style>

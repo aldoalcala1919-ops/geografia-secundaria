@@ -309,7 +309,7 @@ if 'alumnos' not in st.session_state:
         {"grupo": "1° D Geografía", "nombre": "OLIVARES ACOSTO KEILYN ARIADNE", "pin": "1474"},
         {"grupo": "1° D Geografía", "nombre": "PEREZ CASTILLO SURI MICHELLE", "pin": "9792"},
         {"grupo": "1° D Geografía", "nombre": "PEREZ GARCIA AYLIN MONSERRAT", "pin": "6652"},
-        {"grupo": "1° D Geografía", "nombre": "PEREZ GARCIA AYDIL NOHEMI", "pin": "7003"},
+        {"grupo": "1° D Geografía", "nombre": "PEREZ GRCIA AYDIL NOHEMI", "pin": "7003"},
         {"grupo": "1° D Geografía", "nombre": "PUENTE CEDILLO DARWIN JAVIER", "pin": "9494"},
         {"grupo": "1° D Geografía", "nombre": "QUISTIANO LOPEZ NOE ISMAEL", "pin": "6726"},
         {"grupo": "1° D Geografía", "nombre": "RAMOS ENRIQUEZ GAEL", "pin": "7525"},
@@ -476,8 +476,9 @@ if modo == "Portal Familiar / Alumno":
                                             data=archivo_subido.getvalue(), 
                                             mime_type=archivo_subido.type
                                         )
+                                        # Actualizado al modelo vigente gemini-3.6-flash
                                         response = client.models.generate_content(
-                                            model='gemini-2.5-flash', 
+                                            model='gemini-3.6-flash', 
                                             contents=[prompt_ia, archivo_part]
                                         )
                                         
@@ -667,7 +668,7 @@ elif modo == "Panel Docente (Profesor)":
             st.markdown("Filtra por grupo para ver el estatus de entregas, calificaciones automáticas y redacciones.")
             
             if not client:
-                st.warning("⚠️ La API de Gemini não está configurada. Añade tu `GEMINI_API_KEY` en los secrets.")
+                st.warning("⚠️ La API de Gemini no está configurada. Añade tu `GEMINI_API_KEY` en los secrets.")
             else:
                  grupo_rev_sel = st.selectbox("1. Selecciona Grupo a Revisar:", ["1° A Geografía", "1° B Geografía", "1° C Geografía", "1° D Geografía"])
                  

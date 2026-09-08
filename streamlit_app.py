@@ -19,7 +19,7 @@ st.set_page_config(
 gemini_key = st.secrets.get("GEMINI_API_KEY", "")
 client = genai.Client(api_key=gemini_key) if gemini_key else None
 
-# --- PERSISTENCIA ROBUSTA Y SEGURA EN JSON ---
+# --- PERSISTENCIA LIGERA Y SEGURA EN JSON ---
 DB_FILE = "school_database.json"
 
 def cargar_datos_persistidos():
@@ -423,15 +423,39 @@ if modo == "Portal Familiar / Alumno":
                     
                     if archivo_subido is not None:
                         if st.button(f"🚀 Enviar tarea: {t['titulo']}", key=f"btn_enviar_indiv_{t['id']}"):
+                            # Procesamiento inmediato con IA (sin guardar archivo pesado en memoria permanente)
+                            revision_texto = "Entregado correctamente, pendiente de revisión."
+                            calificacion_asignada = None
+
+                            if client:
+                                try:
+                                    with st.spinner("🤖 Analizando tarea con IA..."):
+                                        prompt_ia = (
+                                            "Actúa como profesor de geografía de secundaria. "
+                                            "Revisa la entrega de forma directa, general y breve (máximo dos oraciones de comentario). "
+                                            "Obligatoriamente debes incluir al final una calificación numérica exacta del 0 al 10 con este formato exacto: "
+                                            "Calificación: X.X"
+                                        )
+                                        contents = [prompt_ia, types.Part.from_bytes(data=archivo_subido.getvalue(), mime_type=archivo_subido.type)]
+                                        response = client.models.generate_content(model='gemini-2.5-flash', contents=contents)
+                                        
+                                        revision_texto = response.text
+                                        match_cal = re.search(r"Calificaci[oó]n:\s*([0-9]+(?:\.[0-9]+)?)", revision_texto, re.IGNORECASE)
+                                        if match_cal:
+                                            calificacion_asignada = float(match_cal.group(1))
+                                        else:
+                                            calificacion_asignada = 8.5
+                                except Exception as e:
+                                    revision_texto = "Entregado correctamente. (Revisión pendiente por saturación momentánea)."
+
                             st.session_state.entregas_alumnos[nombre_actual][t['id']] = {
                                 "archivo": archivo_subido.name,
-                                "contenido_bytes": list(archivo_subido.getvalue()),
                                 "tipo_archivo": archivo_subido.type,
-                                "revision": "Entregado correctamente, pendiente de revisión.",
-                                "calificacion": None
+                                "revision": revision_texto,
+                                "calificacion": calificacion_asignada
                             }
                             guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos, st.session_state.incidencias_alumnos, st.session_state.examenes_formularios)
-                            st.success(f"¡Actividad '{t['titulo']}' enviada con éxito!")
+                            st.success(f"¡Actividad '{t['titulo']}' enviada y evaluada con éxito!")
                             st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -444,7 +468,6 @@ if modo == "Portal Familiar / Alumno":
         with tab_asistencia:
             st.markdown("### Historial de Asistencia y Justificantes")
             
-            # Cálculo de asistencias reales del alumno actual
             reg_asist_alu = st.session_state.asistencias_alumnos.get(nombre_actual, {})
             
             col_as1, col_as2, col_as3, col_as4 = st.columns(4)
@@ -570,7 +593,7 @@ elif modo == "Panel Docente (Profesor)":
         with doc_tab2:
             st.markdown('<div class="card-modern">', unsafe_allow_html=True)
             st.subheader("🤖 Asistente de Revisión Inteligente por Grupo")
-            st.markdown("Filtra por grupo para ver el estatus de entregas de forma ordenada y ejecuta la revisión directa.")
+            st.markdown("Filtra por grupo para ver el estatus de entregas, calificaciones automáticas y redacciones.")
             
             if not client:
                 st.warning("⚠️ La API de Gemini no está configurada. Añade tu `GEMINI_API_KEY` en los secrets.")
@@ -605,47 +628,17 @@ elif modo == "Panel Docente (Profesor)":
                      )
                      
                      entrega_data = st.session_state.entregas_alumnos[alumno_sel_rev][act_sel_id]
-                     st.write(f"📄 **Archivo entregado:** `{entrega_data['archivo']}`")
+                     st.write(f"📄 **Archivo registrado:** `{entrega_data['archivo']}`")
                      
-                     if st.button("✨ Generar Revisión Directa con IA"):
-                         with st.spinner("Analizando entrega..."):
-                             try:
-                                 prompt_ia = (
-                                     "Actúa como profesor de geografía de secundaria. "
-                                     "Revisa la entrega de forma directa, general y breve (máximo dos oraciones de comentario). "
-                                     "Obligatoriamente debes incluir al final una calificación numérica exacta del 0 al 10 con este formato exacto: "
-                                     "Calificación: X.X"
-                                 )
-                                 
-                                 contents = [prompt_ia]
-                                 if entrega_data.get('contenido_bytes'):
-                                     byte_data = bytes(entrega_data['contenido_bytes'])
-                                     contents.append(
-                                         types.Part.from_bytes(
-                                             data=byte_data,
-                                             mime_type=entrega_data['tipo_archivo'],
-                                         )
-                                     )
-                                 
-                                 response = client.models.generate_content(
-                                     model='gemini-3.6-flash',
-                                     contents=contents,
-                                 )
-                                 
-                                 texto_respuesta = response.text
-                                 match_cal = re.search(r"Calificaci[oó]n:\s*([0-9]+(?:\.[0-9]+)?)", texto_respuesta, re.IGNORECASE)
-                                 calif_extraida = float(match_cal.group(1)) if match_cal else 8.0
-                                 
-                                 st.success("¡Análisis completado!")
-                                 st.write(texto_respuesta)
-                                 
-                                 st.session_state.entregas_alumnos[alumno_sel_rev][act_sel_id]['revision'] = texto_respuesta
-                                 st.session_state.entregas_alumnos[alumno_sel_rev][act_sel_id]['calificacion'] = calif_extraida
-                                 guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos, st.session_state.incidencias_alumnos, st.session_state.examenes_formularios)
-                             except Exception as e:
-                                 st.error(f"Error al procesar con IA: {e}")
+                     if entrega_data.get('revision'):
+                         st.markdown(f"""
+                         <div class="eval-card">
+                             <p><b>Calificación otorgada por IA:</b> {entrega_data.get('calificacion', 'N/A')} / 10</p>
+                             <p><b>Retroalimentación:</b><br>{entrega_data['revision']}</p>
+                         </div>
+                         """, unsafe_allow_html=True)
                  else:
-                     st.info(f"Aún no hay alumnos con entregas de archivos registradas en el grupo `{grupo_rev_sel}`.")
+                     st.info(f"Aún no hay alumnos con entregas registradas en el grupo `{grupo_rev_sel}`.")
             st.markdown('</div>', unsafe_allow_html=True)
 
         with doc_tab3:

@@ -48,7 +48,9 @@ def guardar_datos_persistidos(actividades, entregas, asistencias=None, incidenci
     try:
         with open(DB_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
-        os.fsync(f.fileno())
+            # Guardado forzado y seguro en disco SIN causar error
+            f.flush()
+            os.fsync(f.fileno())
     except Exception as e:
         st.error(f"Error crítico al guardar datos: {e}")
 

@@ -48,9 +48,6 @@ def guardar_datos_persistidos(actividades, entregas, asistencias=None, incidenci
     try:
         with open(DB_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
-            # Guardado forzado y seguro en disco SIN causar error
-            f.flush()
-            os.fsync(f.fileno())
     except Exception as e:
         st.error(f"Error crítico al guardar datos: {e}")
 
@@ -446,16 +443,28 @@ if modo == "Portal Familiar / Alumno":
 
         with tab_asistencia:
             st.markdown("### Historial de Asistencia y Justificantes")
-            st.markdown("""
-            <div class="card-modern">
-                <p>✅ <b>Asistencias a tiempo:</b> Registradas</p>
-                <p>⚠️ <b>Retardos:</b> Registrados</p>
-                <p>📝 <b>Justificantes:</b> Válidos (Aplicados por docente)</p>
-                <p>❌ <b>Faltas:</b> Registradas</p>
-                <hr style="border-color: #e2e8f0;">
-                <p style="color: #1d3557;"><b>Estatus:</b> Tu récord se actualiza conforme el profesor registra asistencia o justificantes históricos.</p>
-            </div>
-            """, unsafe_allow_html=True)
+            
+            # Cálculo de asistencias reales del alumno actual
+            reg_asist_alu = st.session_state.asistencias_alumnos.get(nombre_actual, {})
+            
+            col_as1, col_as2, col_as3, col_as4 = st.columns(4)
+            col_as1.metric("✅ Asistencias", list(reg_asist_alu.values()).count("Asistencia"))
+            col_as2.metric("⚠️ Retardos", list(reg_asist_alu.values()).count("Retardo"))
+            col_as3.metric("📝 Justificantes", list(reg_asist_alu.values()).count("Justificante"))
+            col_as4.metric("❌ Faltas", list(reg_asist_alu.values()).count("Falta"))
+
+            st.markdown("---")
+            st.markdown("#### Detalle por Fecha")
+            if not reg_asist_alu:
+                st.info("Aún no hay registros de asistencia guardados para tu expediente.")
+            else:
+                for fecha_reg, estatus_reg in sorted(reg_asist_alu.items(), reverse=True):
+                    color_est = "#15803d" if estatus_reg == "Asistencia" else ("#b45309" if estatus_reg == "Retardo" else ("#1d3557" if estatus_reg == "Justificante" else "#991b1b"))
+                    st.markdown(f"""
+                    <div class="eval-card">
+                        <p style="margin-bottom: 0;">📅 <b>Fecha:</b> {fecha_reg} — Estatus: <b style="color: {color_est};">{estatus_reg}</b></p>
+                    </div>
+                    """, unsafe_allow_html=True)
 
         with tab_proyectos:
             mostrar_seccion_actividades("Proyecto")

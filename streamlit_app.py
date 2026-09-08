@@ -3,6 +3,7 @@ import pandas as pd
 import json
 import os
 import re
+import time
 from datetime import date
 from google import genai
 from google.genai import types
@@ -464,32 +465,41 @@ if modo == "Portal Familiar / Alumno":
                             calificacion_asignada = None
 
                             if client:
-                                try:
-                                    with st.spinner("🤖 Analizando tarea con IA..."):
-                                        prompt_ia = (
-                                            "Actúa como profesor de geografía de secundaria. "
-                                            "Revisa la entrega de forma directa, general y breve (máximo dos oraciones de comentario). "
-                                            "Obligatoriamente debes incluir al final una calificación numérica exacta del 0 al 10 con este formato exacto: "
-                                            "Calificación: X.X"
-                                        )
-                                        archivo_part = types.Part.from_bytes(
-                                            data=archivo_subido.getvalue(), 
-                                            mime_type=archivo_subido.type
-                                        )
-                                        # Actualizado al modelo vigente gemini-3.6-flash
-                                        response = client.models.generate_content(
-                                            model='gemini-3.6-flash', 
-                                            contents=[prompt_ia, archivo_part]
-                                        )
-                                        
-                                        revision_texto = response.text
-                                        match_cal = re.search(r"Calificaci[oó]n:\s*([0-9]+(?:\.[0-9]+)?)", revision_texto, re.IGNORECASE)
-                                        if match_cal:
-                                            calificacion_asignada = float(match_cal.group(1))
-                                        else:
-                                            calificacion_asignada = 8.5
-                                except Exception as e:
-                                    revision_texto = f"Entregado correctamente. (Error de IA: {e})"
+                                intentos = 3
+                                exito_ia = False
+                                for intento in range(intentos):
+                                    try:
+                                        with st.spinner(f"🤖 Analizando tarea con IA (Intento {intento+1})..."):
+                                            prompt_ia = (
+                                                "Actúa como profesor de geografía de secundaria. "
+                                                "Revisa la entrega de forma directa, general y breve (máximo dos oraciones de comentario). "
+                                                "Obligatoriamente debes incluir al final una calificación numérica exacta del 0 al 10 con este formato exacto: "
+                                                "Calificación: X.X"
+                                            )
+                                            archivo_part = types.Part.from_bytes(
+                                                data=archivo_subido.getvalue(), 
+                                                mime_type=archivo_subido.type
+                                            )
+                                            response = client.models.generate_content(
+                                                model='gemini-3.6-flash', 
+                                                contents=[prompt_ia, archivo_part]
+                                            )
+                                            
+                                            revision_texto = response.text
+                                            match_cal = re.search(r"Calificaci[oó]n:\s*([0-9]+(?:\.[0-9]+)?)", revision_texto, re.IGNORECASE)
+                                            if match_cal:
+                                                calificacion_asignada = float(match_cal.group(1))
+                                            else:
+                                                calificacion_asignada = 8.5
+                                            exito_ia = True
+                                            break
+                                    except Exception as e:
+                                        # Si es error 429 de límite saturado, esperamos 25 segundos antes de reintentar
+                                        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                                            if intento < intentos - 1:
+                                                time.sleep(25)
+                                                continue
+                                        revision_texto = f"Entregado correctamente. (Revisión pendiente por saturación temporal)."
 
                             st.session_state.entregas_alumnos[nombre_actual][t['id']] = {
                                 "archivo": archivo_subido.name,

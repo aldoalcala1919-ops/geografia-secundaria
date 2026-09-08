@@ -19,7 +19,7 @@ st.set_page_config(
 gemini_key = st.secrets.get("GEMINI_API_KEY", "")
 client = genai.Client(api_key=gemini_key) if gemini_key else None
 
-# --- PERSISTENCIA LIGERA Y SEGURA EN JSON ---
+# --- PERSISTENCIA LIGERA Y BLINDADA EN JSON ---
 DB_FILE = "school_database.json"
 
 def cargar_datos_persistidos():
@@ -758,7 +758,7 @@ elif modo == "Panel Docente (Profesor)":
                         })
                         
                         guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos, st.session_state.incidencias_alumnos, st.session_state.examenes_formularios)
-                        st.success(f"¡Incidencia registrada y guardada permanentemente para el {alumno_seleccionado}!")
+                        st.success(f"¡Incidencia registrada y guardada permanentemente para {alumno_seleccionado}!")
             else:
                 alumno_cons = st.selectbox("Selecciona Alumno a Consultar:", alumnos_inc_grupo, key="sel_cons_alu_inc")
                 historial_alu = st.session_state.incidencias_alumnos.get(alumno_cons, [])

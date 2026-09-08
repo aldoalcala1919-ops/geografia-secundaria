@@ -26,7 +26,9 @@ def cargar_datos_persistidos():
     if os.path.exists(DB_FILE):
         try:
             with open(DB_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+                if isinstance(data, dict):
+                    return data
         except Exception:
             pass
     return {"actividades": [], "entregas": {}, "asistencias": {}, "incidencias": {}, "examenes": []}
@@ -423,7 +425,6 @@ if modo == "Portal Familiar / Alumno":
                     
                     if archivo_subido is not None:
                         if st.button(f"🚀 Enviar tarea: {t['titulo']}", key=f"btn_enviar_indiv_{t['id']}"):
-                            # Procesamiento inmediato con IA (sin guardar archivo pesado en memoria permanente)
                             revision_texto = "Entregado correctamente, pendiente de revisión."
                             calificacion_asignada = None
 
@@ -446,7 +447,7 @@ if modo == "Portal Familiar / Alumno":
                                         else:
                                             calificacion_asignada = 8.5
                                 except Exception as e:
-                                    revision_texto = "Entregado correctamente. (Revisión pendiente por saturación momentánea)."
+                                    revision_texto = "Entregado correctamente. (Revisión pendiente)."
 
                             st.session_state.entregas_alumnos[nombre_actual][t['id']] = {
                                 "archivo": archivo_subido.name,
@@ -757,7 +758,7 @@ elif modo == "Panel Docente (Profesor)":
                         })
                         
                         guardar_datos_persistidos(st.session_state.actividades, st.session_state.entregas_alumnos, st.session_state.asistencias_alumnos, st.session_state.incidencias_alumnos, st.session_state.examenes_formularios)
-                        st.success(f"¡Incidencia registrada y guardada permanentemente para {alumno_seleccionado}!")
+                        st.success(f"¡Incidencia registrada y guardada permanentemente para el {alumno_seleccionado}!")
             else:
                 alumno_cons = st.selectbox("Selecciona Alumno a Consultar:", alumnos_inc_grupo, key="sel_cons_alu_inc")
                 historial_alu = st.session_state.incidencias_alumnos.get(alumno_cons, [])

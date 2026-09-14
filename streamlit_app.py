@@ -27,11 +27,29 @@ def cargar_datos_persistidos():
     if os.path.exists(DB_FILE):
         try:
             with open(DB_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
+                content = f.read().strip()
+                if not content:
+                    return {
+                        "actividades": [], 
+                        "entregas": {}, 
+                        "asistencias": {}, 
+                        "incidencias": {}, 
+                        "examenes": [],
+                        "aviso": {"activo": False, "texto": ""}
+                    }
+                data = json.loads(content)
                 if isinstance(data, dict):
-                    return data
-        except Exception:
-            pass
+                    return {
+                        "actividades": data.get("actividades", []),
+                        "entregas": data.get("entregas", {}),
+                        "asistencias": data.get("asistencias", {}),
+                        "incidencias": data.get("incidencias", {}),
+                        "examenes": data.get("examenes", []),
+                        "aviso": data.get("aviso", {"activo": False, "texto": ""})
+                    }
+        except Exception as e:
+            st.warning(f"Aviso de lectura en base de datos: {e}")
+            
     return {
         "actividades": [], 
         "entregas": {}, 
@@ -63,7 +81,7 @@ def guardar_datos_persistidos(actividades, entregas, asistencias=None, incidenci
         with open(DB_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
     except Exception as e:
-        st.error(f"Error crítico al guardar datos: {e}")
+        st.error(f"Error crítico al guardar datos en el servidor: {e}")
 
 stored_data = cargar_datos_persistidos()
 if 'actividades' not in st.session_state:
@@ -310,7 +328,7 @@ if 'alumnos' not in st.session_state:
         {"grupo": "1° D Geografía", "nombre": "OLIVARES ACOSTO KEILYN ARIADNE", "pin": "1474"},
         {"grupo": "1° D Geografía", "nombre": "PEREZ CASTILLO SURI MICHELLE", "pin": "9792"},
         {"grupo": "1° D Geografía", "nombre": "PEREZ GARCIA AYLIN MONSERRAT", "pin": "6652"},
-        {"grupo": "1° D Geografía", "nombre": "PEREZ GRCIA AYDIL NOHEMI", "pin": "7003"},
+        {"grupo": "1° D Geografía", "nombre": "PEREZ GARCIA AYDIL NOHEMI", "pin": "7003"},
         {"grupo": "1° D Geografía", "nombre": "PUENTE CEDILLO DARWIN JAVIER", "pin": "9494"},
         {"grupo": "1° D Geografía", "nombre": "QUISTIANO LOPEZ NOE ISMAEL", "pin": "6726"},
         {"grupo": "1° D Geografía", "nombre": "RAMOS ENRIQUEZ GAEL", "pin": "7525"},
@@ -466,7 +484,6 @@ if modo == "Portal Familiar / Alumno":
 
                             if client:
                                 intentos = 3
-                                exito_ia = False
                                 for intento in range(intentos):
                                     try:
                                         with st.spinner(f"🤖 Analizando tarea con IA (Intento {intento+1})..."):
@@ -491,15 +508,13 @@ if modo == "Portal Familiar / Alumno":
                                                 calificacion_asignada = float(match_cal.group(1))
                                             else:
                                                 calificacion_asignada = 8.5
-                                            exito_ia = True
                                             break
                                     except Exception as e:
-                                        # Si es error 429 de límite saturado, esperamos 25 segundos antes de reintentar
-                                        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                                        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e) or "503" in str(e) or "UNAVAILABLE" in str(e):
                                             if intento < intentos - 1:
-                                                time.sleep(25)
+                                                time.sleep(20)
                                                 continue
-                                        revision_texto = f"Entregado correctamente. (Revisión pendiente por saturación temporal)."
+                                        revision_texto = f"Entregado correctamente. (Error de IA temporal: {e})"
 
                             st.session_state.entregas_alumnos[nombre_actual][t['id']] = {
                                 "archivo": archivo_subido.name,
